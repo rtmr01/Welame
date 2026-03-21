@@ -1,0 +1,23 @@
+# Dependências Node
+node_modules/
+dist/
+build/
+.npm/
+
+# Dependências Python
+backend/venv/
+venv/
+__pycache__/
+*.pyc
+
+# Variáveis de Ambiente e Segredos
+.env
+.env.local
+.env.*
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db
+
+# Dados Brutos Temporários
+*.csv
