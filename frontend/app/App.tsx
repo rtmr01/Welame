@@ -21,7 +21,7 @@ export default function App() {
 
   // Inicialmente busca as partidas da API BetsAPI
   useEffect(() => {
-    fetch('http://localhost:8000/api/upcoming-matches')
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/upcoming-matches`)
       .then(res => res.json())
       .then(data => {
         const matches = data.matches || [];
@@ -43,7 +43,7 @@ export default function App() {
   useEffect(() => {
     if (!homeTeamInput || !awayTeamInput) return;
     setApiData(null);
-    fetch(`http://localhost:8000/api/match-scenario?homeTeam=${encodeURIComponent(homeTeamInput)}&awayTeam=${encodeURIComponent(awayTeamInput)}`)
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/match-scenario?homeTeam=${encodeURIComponent(homeTeamInput)}&awayTeam=${encodeURIComponent(awayTeamInput)}`)
       .then(res => res.json())
       .then(data => setApiData(data))
       .catch(err => console.error("Erro ao puxar dados da API:", err));
@@ -65,12 +65,12 @@ export default function App() {
         {/* Header */}
         <div className="text-center space-y-4 mb-8">
           <h1 className="text-slate-900 text-3xl font-bold">Assistente de Partida (Com Apostas Ao Vivo)</h1>
-          
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 bg-white/60 p-4 rounded-xl shadow-sm border border-slate-200 w-fit mx-auto backdrop-blur-sm">
             {isLoadingMatches ? (
               <div className="px-4 py-2 text-slate-500 animate-pulse font-medium">Extraindo jogos da BetsAPI...</div>
             ) : (
-              <select 
+              <select
                 onChange={handleMatchSelect}
                 className="px-4 py-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none w-full md:w-[450px] bg-white cursor-pointer font-medium text-slate-800 shadow-sm"
               >
