@@ -40,168 +40,152 @@ def get_upcoming_matches():
 
 @app.get("/api/match-scenario")
 def get_match_scenario(homeTeam: str = "Manchester City", awayTeam: str = "Liverpool"):
+    import random
+    # Semente determinística baseada no nome dos times para que o mesmo jogo sempre retorne os mesmos dados
+    random.seed(f"{homeTeam}-{awayTeam}")
+    
+    home_win_prob = random.randint(35, 65)
+    away_win_prob = random.randint(15, 100 - home_win_prob - 10)
+    draw_prob = 100 - home_win_prob - away_win_prob
+    
+    home_goals_prob = random.randint(45, 75)
+    away_goals_prob = 100 - home_goals_prob
+    
+    home_cards_prob = random.randint(30, 70)
+    away_cards_prob = 100 - home_cards_prob
+    
+    # Cenário principal determinístico
+    main_confidence = random.randint(60, 85)
+    
+    def get_recent_form():
+        return [{"result": random.choice(["W", "D", "L"]), "score": f"{random.randint(0,3)}-{random.randint(0,2)}"} for _ in range(5)]
+        
+    def get_trend():
+        return [random.randint(0, 4) for _ in range(5)]
+
     return {
         "homeTeam": homeTeam,
         "awayTeam": awayTeam,
         "scenarioData": {
             "standard": {
                 "mainScenario": {
-                    "insight": f"{homeTeam} é favorito com 58% de chance de vitória",
-                    "confidence": 73,
-                    "reasoning": f"Baseado no desempenho recente em casa (8 vitórias nos últimos 10 jogos) e no histórico de confrontos diretos nesta temporada"
+                    "insight": f"{homeTeam} tem {home_win_prob}% de chance de vitória neste confronto base.",
+                    "confidence": main_confidence,
+                    "reasoning": f"Algoritmo analisou as últimas atuações de ambos os times. O desempenho ajustado projeta vantagem para o {homeTeam if home_win_prob > away_win_prob else awayTeam}."
                 },
                 "probabilities": {
-                    "goals": {"home": 68, "away": 45, "method": "statistical"},
-                    "cards": {"home": 42, "away": 55, "method": "ml"},
-                    "penalty": {"home": 28, "away": 22, "method": "heuristic"},
-                    "winner": {"home": 58, "away": 25, "draw": 17, "method": "ml"}
+                    "goals": {"home": home_goals_prob, "away": away_goals_prob, "method": "statistical"},
+                    "cards": {"home": home_cards_prob, "away": away_cards_prob, "method": "ml"},
+                    "penalty": {"home": random.randint(20,40), "away": random.randint(15,35), "method": "heuristic"},
+                    "winner": {"home": home_win_prob, "away": away_win_prob, "draw": draw_prob, "method": "ml"}
                 }
             },
             "pressure": {
                 "mainScenario": {
-                    "insight": f"Sob pressão, {homeTeam} ataca mais mas {awayTeam} pode contra-atacar",
-                    "confidence": 68,
-                    "reasoning": f"Simulando cenário onde {homeTeam} está perdendo. Historicamente aumenta finalizações em 35% mas concede mais espaço"
+                    "insight": f"Num cenário de desvantagem, {homeTeam} sufocará o adversário, elevando finalizações.",
+                    "confidence": main_confidence - random.randint(5, 10),
+                    "reasoning": f"Simulando desvantagem: Histórico aponta aumento de {random.randint(20,40)}% no volume ofensivo, gerando mais espaços na defesa."
                 },
                 "probabilities": {
-                    "goals": {"home": 75, "away": 52, "method": "statistical"},
-                    "cards": {"home": 58, "away": 62, "method": "ml"},
-                    "penalty": {"home": 35, "away": 28, "method": "heuristic"},
-                    "winner": {"home": 52, "away": 32, "draw": 16, "method": "ml"}
+                    "goals": {"home": min(95, home_goals_prob + 15), "away": max(5, away_goals_prob - 10), "method": "statistical"},
+                    "cards": {"home": min(85, home_cards_prob + 20), "away": away_cards_prob, "method": "ml"},
+                    "penalty": {"home": random.randint(30,50), "away": random.randint(20,40), "method": "heuristic"},
+                    "winner": {"home": min(80, home_win_prob + 12), "away": away_win_prob, "draw": max(5, draw_prob - 5), "method": "ml"}
                 }
             },
             "control": {
                 "mainScenario": {
-                    "insight": f"Com alta posse, {homeTeam} domina mas pode ter dificuldade para finalizar",
-                    "confidence": 71,
-                    "reasoning": f"Com 65%+ de posse, {homeTeam} cria mais chances mas {awayTeam} defende bem recuado"
+                    "insight": f"Domínio da posse (65%+): {homeTeam} dita o ritmo sem acelerar o jogo.",
+                    "confidence": main_confidence + random.randint(2, 6),
+                    "reasoning": "Controle absoluto do meio-campo reduz transições perigosas e cadencia a taxa de Gols Esperados (xG)."
                 },
                 "probabilities": {
-                    "goals": {"home": 62, "away": 38, "method": "statistical"},
-                    "cards": {"home": 35, "away": 48, "method": "ml"},
-                    "penalty": {"home": 32, "away": 18, "method": "heuristic"},
-                    "winner": {"home": 64, "away": 20, "draw": 16, "method": "ml"}
+                    "goals": {"home": max(20, home_goals_prob - 10), "away": max(10, away_goals_prob - 15), "method": "statistical"},
+                    "cards": {"home": max(15, home_cards_prob - 15), "away": min(85, away_cards_prob + 10), "method": "ml"},
+                    "penalty": {"home": random.randint(15,25), "away": random.randint(5,15), "method": "heuristic"},
+                    "winner": {"home": min(90, home_win_prob + 8), "away": max(5, away_win_prob - 5), "draw": draw_prob, "method": "ml"}
                 }
             }
         },
         "metadata": {
             "goals": {
-                "reasoning": f"Últimos cinco jogos do {homeTeam} em casa tiveram média de 2.8 gols marcados. {awayTeam} sofreu gols em 4 dos últimos 5 jogos fora de casa",
-                "source": "baseado nos últimos 5 jogos"
+                "reasoning": f"Nas rodadas recentes, o {homeTeam} apresenta média de {round(random.uniform(1.1, 2.8), 1)} gols esperados (xG).",
+                "source": "Análise Estatística de xG"
             },
             "cards": {
-                "reasoning": f"{awayTeam} tem histórico de jogo físico em confrontos diretos, com média de 3.2 cartões amarelos",
-                "source": "modelo de intensidade de jogo"
+                "reasoning": f"Confronto tático indica alto risco de faltas. Árbitro tem média de {round(random.uniform(3.5, 6.0), 1)} cartões.",
+                "source": "Modelo de Intensidade & Arbitragem"
             },
             "penalty": {
-                "reasoning": f"Últimos três confrontos entre estas equipes tiveram dois pênaltis. {homeTeam} pressiona muito na área adversária",
-                "source": "baseado em confrontos diretos"
+                "reasoning": f"Alta penetração na área: {homeTeam} sofreu {random.randint(2, 6)} pênaltis na temporada atual.",
+                "source": "Heurística de Presença na Área"
             },
             "winner": {
-                "reasoning": f"{homeTeam} venceu 7 dos últimos 10 confrontos em casa. {awayTeam} está com jogadores importantes lesionados",
-                "source": "modelo de forma e condição do elenco"
+                "reasoning": f"Vantagem técnica e mando de campo (ou forma recente) apontam favoritismo distribuído de {home_win_prob}% ao mandante.",
+                "source": "Preditor Machine Learning"
             }
         },
         "timelineEvents": [
             {
-                "minute": 12,
+                "minute": random.randint(10, 20),
                 "type": "goal",
-                "probability": 72,
-                "description": f"Alta chance de gol do {homeTeam}",
-                "factors": [
-                    "Período de maior pressão ofensiva baseado em padrões históricos",
-                    f"{awayTeam} geralmente leva 15min para se adaptar ao ritmo do {homeTeam}",
-                    f"Média de 0.8 gols marcados pelo {homeTeam} entre 10-15 minutos"
-                ]
+                "probability": random.randint(60, 85),
+                "description": f"Pico inicial de pressão do {homeTeam}",
+                "factors": ["Adaptação lenta do adversário", "Alta intensidade inicial"]
             },
             {
-                "minute": 28,
+                "minute": random.randint(30, 42),
                 "type": "pressure",
-                "probability": 65,
-                "description": "Período de pressão intensa",
-                "factors": [
-                    f"Pico de finalizações do {homeTeam} ocorre entre 25-35 minutos",
-                    f"{awayTeam} tende a recuar neste período do jogo",
-                    "Maior número de escanteios e cruzamentos esperados"
-                ]
+                "probability": random.randint(55, 75),
+                "description": "Período intenso de escanteios e finalizações",
+                "factors": ["Desgaste da primeira linha", "Aumento de bolas paradas"]
             },
             {
-                "minute": 44,
-                "type": "goal",
-                "probability": 58,
-                "description": "Janela de oportunidade antes do intervalo",
-                "factors": [
-                    "Times ficam mais vulneráveis nos últimos minutos do tempo",
-                    f"{homeTeam} tem histórico de gols nos acréscimos do 1º tempo",
-                    "Pressão psicológica para pontuar antes do intervalo"
-                ]
-            },
-            {
-                "minute": 67,
+                "minute": random.randint(55, 65),
                 "type": "defense",
-                "probability": 55,
-                "description": f"{awayTeam} fortalece defesa após substituições",
-                "factors": [
-                    "Período típico de substituições defensivas",
-                    "Redução de 25% em gols sofridos após mudanças táticas",
-                    "Foco em segurar resultado ou buscar contra-ataque"
-                ]
+                "probability": random.randint(65, 80),
+                "description": f"Ajuste tático e retranca do {awayTeam}",
+                "factors": ["Substituições conservadoras esperadas", "Controle de resultado"]
             },
             {
-                "minute": 82,
+                "minute": random.randint(78, 88),
                 "type": "goal",
-                "probability": 68,
-                "description": "Momento crítico - cansaço físico aumenta chances",
-                "factors": [
-                    "Defesas ficam mais vulneráveis após 80 minutos",
-                    f"40% dos gols do {homeTeam} ocorrem nos últimos 15 minutos",
-                    "Espaços maiores devido ao desgaste físico"
-                ]
+                "probability": random.randint(70, 90),
+                "description": "Fase letal - desorganização por fadiga",
+                "factors": ["Linhas espaçadas", f"{awayTeam} tende a sofrer gols no final"]
             }
         ],
         "autoComments": [
             {
-                "text": f"O {homeTeam} tem 30% mais finalizações no primeiro tempo em jogos em casa. Fique de olho no início da partida.",
+                "text": f"O sistema indica que o {homeTeam} marca 40% dos seus gols no segundo tempo.",
                 "type": "insight"
             },
             {
-                "text": f"{awayTeam} está em tendência de queda defensiva, sofrendo gols em 4 dos últimos 5 jogos fora de casa.",
-                "type": "trend"
+                "text": f"Alerta de cartões: A partida tende a ficar violenta na zona central após os 30 minutos.",
+                "type": "alert"
             },
             {
-                "text": "Atenção: Árbitro Antônio Miguel tem média de 4.2 cartões amarelos por jogo nesta temporada, acima da média da liga.",
-                "type": "alert"
+                "text": f"O {awayTeam} aumentou a média de finalizações cedidas nos últimos {random.randint(3,6)} jogos.",
+                "type": "trend"
             }
         ],
         "matchHistory": {
             "homeTeam": {
                 "name": homeTeam,
-                "recentForm": [
-                    {"result": "W", "score": "3-1"},
-                    {"result": "W", "score": "2-0"},
-                    {"result": "D", "score": "1-1"},
-                    {"result": "W", "score": "4-1"},
-                    {"result": "W", "score": "2-1"}
-                ],
-                "offensiveTrend": [2, 3, 1, 4, 2],
-                "defensiveTrend": [1, 1, 1, 1, 0]
+                "recentForm": get_recent_form(),
+                "offensiveTrend": get_trend(),
+                "defensiveTrend": get_trend()
             },
             "awayTeam": {
                 "name": awayTeam,
-                "recentForm": [
-                    {"result": "W", "score": "2-1"},
-                    {"result": "L", "score": "0-2"},
-                    {"result": "D", "score": "2-2"},
-                    {"result": "W", "score": "3-0"},
-                    {"result": "L", "score": "1-3"}
-                ],
-                "offensiveTrend": [2, 0, 2, 3, 1],
-                "defensiveTrend": [1, 2, 2, 0, 3]
+                "recentForm": get_recent_form(),
+                "offensiveTrend": get_trend(),
+                "defensiveTrend": get_trend()
             },
             "headToHead": {
-                "homeWins": 6,
-                "draws": 2,
-                "awayWins": 2
+                "homeWins": random.randint(2, 6),
+                "draws": random.randint(1, 4),
+                "awayWins": random.randint(1, 5)
             }
         }
     }
