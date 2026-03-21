@@ -47,3 +47,12 @@ class BetsAPIClient:
         Retorna detalhes específicos e estatísticas sobre um evento pelo seu ID.
         """
         return self._get("event/view", params={"event_id": event_id})
+
+    def get_ended_events(self, sport_id: int = 1, skip: int = 0, day: str = None) -> dict:
+        """
+        Retorna eventos encerrados recentemente. Útil para minerar dados históricos de treino.
+        """
+        params = {"sport_id": sport_id, "skip": skip}
+        if day:
+            params["day"] = day
+        return self._get("events/ended", params=params)

@@ -3,3 +3,7 @@ uvicorn
 pydantic
 requests
 python-dotenv
+scikit-learn
+pandas
+numpy
+joblib

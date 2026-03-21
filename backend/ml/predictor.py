@@ -1,0 +1,63 @@
+import joblib
+import pandas as pd
+import hashlib
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+_models = {}
+
+def get_model(name):
+    if name not in _models:
+        model_path = os.path.join(BASE_DIR, f"model_{name}.pkl")
+        if os.path.exists(model_path):
+            _models[name] = joblib.load(model_path)
+        else:
+            return None
+    return _models[name]
+
+def get_team_power(team_name):
+    val = int(hashlib.md5(team_name.encode()).hexdigest(), 16)
+    return 40 + (val % 50)
+
+def predict_match(home_team, away_team):
+    home_power = get_team_power(home_team)
+    away_power = get_team_power(away_team)
+    
+    X = pd.DataFrame([{"home_power": home_power, "away_power": away_power}])
+    
+    clf_winner = get_model("winner")
+    reg_hg = get_model("home_goals")
+    reg_ag = get_model("away_goals")
+    reg_hc = get_model("home_cards")
+    reg_ac = get_model("away_cards")
+    
+    if not all([clf_winner, reg_hg, reg_ag, reg_hc, reg_ac]):
+        raise Exception("Models not found. They need to be trained first.")
+    
+    classes = clf_winner.classes_
+    probs = clf_winner.predict_proba(X)[0]
+    
+    win_probs = {c: p * 100 for c, p in zip(classes, probs)}
+    
+    home_goals_pred = reg_hg.predict(X)[0]
+    away_goals_pred = reg_ag.predict(X)[0]
+    
+    home_cards_pred = reg_hc.predict(X)[0]
+    away_cards_pred = reg_ac.predict(X)[0]
+    
+    return {
+        "winner": {
+            "home": min(95, max(5, int(win_probs.get('H', 33)))),
+            "draw": min(95, max(5, int(win_probs.get('D', 33)))),
+            "away": min(95, max(5, int(win_probs.get('A', 33))))
+        },
+        "goals": {
+            "home_expected": max(0.0, round(home_goals_pred, 1)),
+            "away_expected": max(0.0, round(away_goals_pred, 1))
+        },
+        "cards": {
+            "home_expected": max(0.0, round(home_cards_pred, 1)),
+            "away_expected": max(0.0, round(away_cards_pred, 1))
+        }
+    }
