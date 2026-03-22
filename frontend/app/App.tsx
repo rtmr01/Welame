@@ -1,61 +1,100 @@
 import { useState, useEffect } from 'react';
+import { useLocation, useParams } from 'react-router-dom';
 import { MatchScenarioCard } from './components/MatchScenarioCard';
-import { ProbabilityBar, MethodType } from './components/ProbabilityBar';
+import { ProbabilityBar } from './components/ProbabilityBar';
 import { ProbabilityCarousel } from './components/ProbabilityCarousel';
 import { EventTimeline } from './components/EventTimeline';
 import { AutoComments } from './components/AutoComments';
 import { MatchHistory } from './components/MatchHistory';
 import { ScenarioSelector, ScenarioType } from './components/ScenarioSelector';
+import { SquadDetails } from './components/SquadDetails';
 import { Goal, AlertTriangle, Flag, Trophy } from 'lucide-react';
 
+const SPORT_IDS: Record<string, number> = {
+  futebol: 1,
+  basquete: 18,
+  esports: 151,
+  tenis: 13,
+};
+
+interface MatchItem {
+  id: string | number;
+  homeTeam: string;
+  awayTeam: string;
+}
+
 export default function App() {
+  const { sport, id } = useParams<{ sport: string; id: string }>();
+  const location = useLocation();
+  const routeState = location.state as { match?: MatchItem } | null;
+
   const [activeScenario, setActiveScenario] = useState<ScenarioType>('standard');
   const [apiData, setApiData] = useState<any>(null);
 
-  const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
+  const [upcomingMatches, setUpcomingMatches] = useState<MatchItem[]>([]);
+  const [selectedMatchId, setSelectedMatchId] = useState<string>('');
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
 
   const [homeTeamInput, setHomeTeamInput] = useState('');
   const [awayTeamInput, setAwayTeamInput] = useState('');
   const [triggerFetch, setTriggerFetch] = useState(0);
 
-  // Inicialmente busca as partidas da API BetsAPI
+  // Inicialmente busca as partidas da API BetsAPI para o esporte da rota.
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/upcoming-matches`)
+    const sportKey = (sport || 'futebol').toLowerCase();
+    const sportId = SPORT_IDS[sportKey] || 1;
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/upcoming-matches?sport_id=${sportId}`)
       .then(res => res.json())
       .then(data => {
-        const matches = data.matches || [];
+        const matches = Array.isArray(data.matches) ? data.matches : [];
         setUpcomingMatches(matches);
-        if (matches.length > 0) {
-          setHomeTeamInput(matches[0].homeTeam);
-          setAwayTeamInput(matches[0].awayTeam);
-          setTriggerFetch(prev => prev + 1); // Dispara fetch da primeira partida
+
+        const routedMatch = routeState?.match;
+        const matchFromId = matches.find((m: MatchItem) => String(m.id) === String(id));
+        const preferredMatch = routedMatch || matchFromId || matches[0];
+
+        if (preferredMatch) {
+          setSelectedMatchId(String(preferredMatch.id));
+          setHomeTeamInput(preferredMatch.homeTeam);
+          setAwayTeamInput(preferredMatch.awayTeam);
+          setTriggerFetch(prev => prev + 1);
         }
+
         setIsLoadingMatches(false);
       })
       .catch(err => {
         console.error("Erro puxando proximas partidas:", err);
         setIsLoadingMatches(false);
       });
-  }, []);
+  }, [sport, id, routeState]);
 
-  // Busca os insights da partida especifica
+  // Busca os insights da partida específica selecionada.
   useEffect(() => {
     if (!homeTeamInput || !awayTeamInput) return;
+
     setApiData(null);
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/match-scenario?homeTeam=${encodeURIComponent(homeTeamInput)}&awayTeam=${encodeURIComponent(awayTeamInput)}`)
+    const params = new URLSearchParams({
+      homeTeam: homeTeamInput,
+      awayTeam: awayTeamInput,
+    });
+    if (selectedMatchId) {
+      params.set('matchId', selectedMatchId);
+    }
+
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/match-scenario?${params.toString()}`)
       .then(res => res.json())
       .then(data => setApiData(data))
       .catch(err => console.error("Erro ao puxar dados da API:", err));
-  }, [triggerFetch]);
+  }, [triggerFetch, homeTeamInput, awayTeamInput, selectedMatchId]);
 
   const handleMatchSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const matchId = e.target.value;
-    const match = upcomingMatches.find(m => m.id === matchId);
+    const match = upcomingMatches.find(m => String(m.id) === String(matchId));
     if (match) {
+      setSelectedMatchId(String(match.id));
       setHomeTeamInput(match.homeTeam);
       setAwayTeamInput(match.awayTeam);
-      setTimeout(() => setTriggerFetch(prev => prev + 1), 0);
+      setTriggerFetch(prev => prev + 1);
     }
   };
 
@@ -71,6 +110,7 @@ export default function App() {
               <div className="px-4 py-2 text-slate-500 animate-pulse font-medium">Extraindo jogos da BetsAPI...</div>
             ) : (
               <select
+                value={selectedMatchId}
                 onChange={handleMatchSelect}
                 className="px-4 py-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none w-full md:w-[450px] bg-white cursor-pointer font-medium text-slate-800 shadow-sm"
               >
@@ -183,6 +223,14 @@ export default function App() {
               homeTeam={apiData.matchHistory.homeTeam}
               awayTeam={apiData.matchHistory.awayTeam}
               headToHead={apiData.matchHistory.headToHead}
+            />
+
+            {/* Squad Details */}
+            <SquadDetails
+              homeTeamName={apiData.homeTeam}
+              awayTeamName={apiData.awayTeam}
+              homeSquad={apiData.squads.home}
+              awaySquad={apiData.squads.away}
             />
 
             {/* Help Section */}

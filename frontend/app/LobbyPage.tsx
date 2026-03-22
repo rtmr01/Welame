@@ -39,6 +39,7 @@ export const LobbyPage: React.FC = () => {
     const [matches, setMatches] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedLeague, setSelectedLeague] = useState<number | null>(null);
 
     const currentSport = sport?.toLowerCase() || 'futebol';
@@ -48,8 +49,13 @@ export const LobbyPage: React.FC = () => {
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
         const searchFromUrl = queryParams.get('search');
-        if (searchFromUrl) setSearchTerm(searchFromUrl);
-    }, []);
+        setSearchTerm(searchFromUrl || '');
+    }, [location.search]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 350);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     // 2. Reset de liga ao trocar de esporte
     useEffect(() => {
@@ -67,15 +73,15 @@ export const LobbyPage: React.FC = () => {
             const params = new URLSearchParams();
             params.append('sport_id', sportId.toString());
 
-            // PRIORIDADE: Se houver liga selecionada, usamos ela. 
-            // Se não, e se houver busca, usamos a busca.
+            // Liga e busca podem ser usados em conjunto.
             if (selectedLeague !== null) {
                 params.append('league_id', selectedLeague.toString());
-            } else if (searchTerm.trim() !== '') {
-                params.append('search', searchTerm);
+            }
+            if (debouncedSearch !== '') {
+                params.append('search', debouncedSearch);
             }
 
-            const url = `http://localhost:8000/api/upcoming-matches?${params.toString()}`;
+            const url = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/upcoming-matches?${params.toString()}`;
             
             try {
                 const res = await fetch(url);
@@ -90,7 +96,7 @@ export const LobbyPage: React.FC = () => {
         };
 
         fetchMatches();
-    }, [currentSport, selectedLeague, searchTerm]); // Escuta mudanças no esporte, liga e termo de busca
+    }, [currentSport, selectedLeague, debouncedSearch]);
 
     const getSportIcon = () => {
         const color = "text-[#00D26A] w-12 h-12 mb-2";
@@ -128,7 +134,6 @@ export const LobbyPage: React.FC = () => {
                         value={searchTerm}
                         onChange={(e) => {
                             setSearchTerm(e.target.value);
-                            if(e.target.value !== "") setSelectedLeague(null); // Desmarca liga se digitar
                         }}
                         placeholder={`Pesquisar em ${currentSport}...`}
                         className="w-full py-5 px-16 rounded-2xl bg-[#15183d] border border-[#2a2e6e] text-white focus:outline-none focus:border-[#00D26A] transition-all shadow-2xl"
@@ -170,7 +175,7 @@ export const LobbyPage: React.FC = () => {
                                     <tr 
                                         key={match.id} 
                                         className="hover:bg-[#00D26A]/5 transition-all group cursor-pointer"
-                                        onClick={() => navigate(`/analise/${currentSport}/${match.id}`)}
+                                        onClick={() => navigate(`/analise/${currentSport}/${match.id}`, { state: { match } })}
                                     >
                                         <td className="px-8 py-10 w-44">
                                             <div className="flex items-center gap-3">

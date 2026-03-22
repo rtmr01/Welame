@@ -35,6 +35,14 @@ export const LandingPage: React.FC = () => {
 
                 {/* LOGO */}
                 <header className="text-center space-y-4">
+                    <div className="relative w-fit mx-auto mb-6">
+                        <div className="absolute -inset-4 bg-[#00D26A]/20 blur-2xl rounded-full"></div>
+                        <img
+                            src="/prostats.png"
+                            alt="Pro Stats"
+                            className="relative w-44 md:w-56 drop-shadow-[0_12px_30px_rgba(0,210,106,0.35)]"
+                        />
+                    </div>
                     <h1 className="text-7xl md:text-8xl font-black tracking-tighter leading-none">
                         PRO <span className="text-[#00D26A]">STATS</span>
                     </h1>

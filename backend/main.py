@@ -1,8 +1,10 @@
 import os
 import hashlib
+from typing import Annotated, Any
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from api_clients.betsapi import BetsAPIClient
 from ml.predictor import predict_match
 
@@ -19,16 +21,143 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+class UpcomingMatchesQuery(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    sport_id: int = Field(default=1, ge=1, le=500)
+    league_id: int | None = Field(default=None, ge=1)
+    search: str | None = Field(default=None, min_length=2, max_length=80)
+
+    @field_validator("search")
+    @classmethod
+    def validate_search(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        if not all(ch.isalnum() or ch in " -_.'" for ch in value):
+            raise ValueError("search contém caracteres inválidos")
+        return value
+
+
+class MatchScenarioQuery(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    homeTeam: str = Field(default="Manchester City", min_length=2, max_length=80)
+    awayTeam: str = Field(default="Liverpool", min_length=2, max_length=80)
+    matchId: str | None = Field(default=None, min_length=1, max_length=32)
+
+    @field_validator("homeTeam", "awayTeam")
+    @classmethod
+    def validate_team_name(cls, value: str) -> str:
+        if not all(ch.isalnum() or ch in " -_.'" for ch in value):
+            raise ValueError("Nome de time contém caracteres inválidos")
+        return value
+
+    @field_validator("awayTeam")
+    @classmethod
+    def validate_different_teams(cls, away_team: str, info) -> str:
+        home_team = info.data.get("homeTeam")
+        if home_team and away_team.lower() == home_team.lower():
+            raise ValueError("homeTeam e awayTeam não podem ser iguais")
+        return away_team
+
+    @field_validator("matchId")
+    @classmethod
+    def validate_match_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        if not value.isdigit():
+            raise ValueError("matchId precisa ser numérico")
+        return value
+
+
+def _hash_rand(min_val: int, max_val: int, pseudo_seed: int, index: int) -> int:
+    val = int(hashlib.md5(f"{pseudo_seed}-{index}".encode()).hexdigest(), 16)
+    return min_val + (val % (max_val - min_val + 1))
+
+
+def _fallback_squad(team_name: str) -> dict[str, Any]:
+    players = [
+        {"name": f"{team_name} Jogador {i}", "position": "N/A"}
+        for i in range(1, 12)
+    ]
+    return {"formation": "4-3-3", "players": players, "source": "fallback"}
+
+
+def _extract_players(value: Any) -> list[dict[str, str]]:
+    players: list[dict[str, str]] = []
+    if isinstance(value, list):
+        for item in value:
+            if isinstance(item, dict):
+                name = item.get("name") or item.get("player_name") or item.get("player")
+                if name:
+                    players.append({
+                        "name": str(name),
+                        "position": str(item.get("position") or item.get("pos") or "N/A"),
+                    })
+    elif isinstance(value, dict):
+        for key in ("lineup", "lineups", "players", "squad"):
+            players.extend(_extract_players(value.get(key)))
+    return players
+
+
+def _extract_squads_from_event_view(view: dict[str, Any], home_team: str, away_team: str) -> dict[str, Any]:
+    result = (view.get("results") or [{}])[0]
+
+    home_players = (
+        _extract_players(result.get("home"))
+        + _extract_players(result.get("home_lineup"))
+        + _extract_players(result.get("home_players"))
+    )
+    away_players = (
+        _extract_players(result.get("away"))
+        + _extract_players(result.get("away_lineup"))
+        + _extract_players(result.get("away_players"))
+    )
+
+    home_unique = list({p["name"]: p for p in home_players}.values())[:18]
+    away_unique = list({p["name"]: p for p in away_players}.values())[:18]
+
+    home_formation = result.get("home_formation") or "N/A"
+    away_formation = result.get("away_formation") or "N/A"
+
+    return {
+        "home": {
+            "formation": home_formation,
+            "players": home_unique if home_unique else _fallback_squad(home_team)["players"],
+            "source": "betsapi" if home_unique else "fallback",
+        },
+        "away": {
+            "formation": away_formation,
+            "players": away_unique if away_unique else _fallback_squad(away_team)["players"],
+            "source": "betsapi" if away_unique else "fallback",
+        },
+    }
+
+
+def _build_squads(match_id: str | None, home_team: str, away_team: str) -> dict[str, Any]:
+    if not match_id:
+        return {
+            "home": _fallback_squad(home_team),
+            "away": _fallback_squad(away_team),
+        }
+    try:
+        view = BetsAPIClient().get_event_view(match_id)
+        return _extract_squads_from_event_view(view, home_team, away_team)
+    except Exception:
+        return {
+            "home": _fallback_squad(home_team),
+            "away": _fallback_squad(away_team),
+        }
+
 @app.get("/api/upcoming-matches")
 def get_upcoming_matches(
-    sport_id: int = 1, 
-    league_id: int = Query(None), 
-    search: str = Query(None)
+    params: Annotated[UpcomingMatchesQuery, Depends()]
 ):
     try:
         client = BetsAPIClient()
         # Buscamos os eventos. Se league_id for enviado, o cliente tratará o filtro na origem
-        upcoming = client.get_upcoming_events(sport_id=sport_id, league_id=league_id)
+        upcoming = client.get_upcoming_events(sport_id=params.sport_id, league_id=params.league_id)
         
         matches = []
         results = upcoming.get('results', [])
@@ -40,12 +169,12 @@ def get_upcoming_matches(
 
             # 1. BLOQUEIO DE ESOCCER E LIXO (Essencial para o sport_id 1)
             blacklist = ["esoccer", "electronic", "mins play", "friendly", "cyber", "fifa", "simulated"]
-            if sport_id == 1 and any(term in league_name.lower() for term in blacklist):
+            if params.sport_id == 1 and any(term in league_name.lower() for term in blacklist):
                 continue
 
             # 2. FILTRO DE BUSCA (Se houver termo de pesquisa)
-            if search:
-                s = search.lower()
+            if params.search:
+                s = params.search.lower()
                 if s not in home_name.lower() and s not in away_name.lower() and s not in league_name.lower():
                     continue
 
@@ -65,7 +194,11 @@ def get_upcoming_matches(
         return {"error": str(e), "matches": []}
 
 @app.get("/api/match-scenario")
-def get_match_scenario(homeTeam: str = "Manchester City", awayTeam: str = "Liverpool", matchId: str = None):
+def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
+    homeTeam = params.homeTeam
+    awayTeam = params.awayTeam
+    matchId = params.matchId
+
     # ML Prediction Call
     ml_preds = predict_match(homeTeam, awayTeam)
     
@@ -87,26 +220,23 @@ def get_match_scenario(homeTeam: str = "Manchester City", awayTeam: str = "Liver
     # Cartões idem para o frontend (assumindo máximo ~3 cartões como 100% gravidade)
     home_cards_prob = min(95, max(5, int((home_cards_exp / 3.0) * 100)))
     away_cards_prob = min(95, max(5, int((away_cards_exp / 3.0) * 100)))
+
+    home_penalty_base = ml_preds["penalty"]["home"]
+    away_penalty_base = ml_preds["penalty"]["away"]
     
     # Gerando dados secundários a partir de semente para mante-los estaticos mas variados
     pseudo_seed = int(hashlib.md5(f"{homeTeam}-{awayTeam}".encode()).hexdigest(), 16)
     
-    def deterministic_rand(min_val, max_val, index):
-        # Gera valores numéricos fixos para um dado par de times + index
-        val = int(hashlib.md5(f"{pseudo_seed}-{index}".encode()).hexdigest(), 16)
-        return min_val + (val % (max_val - min_val + 1))
-        
-    main_confidence = deterministic_rand(75, 95, 0)
+    main_confidence = _hash_rand(75, 95, pseudo_seed, 0)
     
     def get_recent_form(i_offset):
-        return [{"result": ["W", "D", "L"][deterministic_rand(0, 2, i_offset + j)], 
-                 "score": f"{deterministic_rand(0,3, i_offset + j + 10)}-{deterministic_rand(0,2, i_offset + j + 20)}"} for j in range(5)]
+        return [{"result": ["W", "D", "L"][_hash_rand(0, 2, pseudo_seed, i_offset + j)], 
+                 "score": f"{_hash_rand(0,3, pseudo_seed, i_offset + j + 10)}-{_hash_rand(0,2, pseudo_seed, i_offset + j + 20)}"} for j in range(5)]
         
     def get_trend(i_offset):
-        return [deterministic_rand(0, 4, i_offset + j) for j in range(5)]
+        return [_hash_rand(0, 4, pseudo_seed, i_offset + j) for j in range(5)]
 
-    home_penalty_base = deterministic_rand(20, 40, 100)
-    away_penalty_base = deterministic_rand(15, 35, 101)
+    squads = _build_squads(matchId, homeTeam, awayTeam)
 
     return {
         "homeTeam": homeTeam,
@@ -121,33 +251,33 @@ def get_match_scenario(homeTeam: str = "Manchester City", awayTeam: str = "Liver
                 "probabilities": {
                     "goals": {"home": home_goals_prob, "away": away_goals_prob, "method": "ml"},
                     "cards": {"home": home_cards_prob, "away": away_cards_prob, "method": "ml"},
-                    "penalty": {"home": home_penalty_base, "away": away_penalty_base, "method": "heuristic"},
+                    "penalty": {"home": home_penalty_base, "away": away_penalty_base, "method": "ml"},
                     "winner": {"home": home_win_prob, "away": away_win_prob, "draw": draw_prob, "method": "ml"}
                 }
             },
             "pressure": {
                 "mainScenario": {
                     "insight": f"Num cenário de pressão contínua, {homeTeam} sufocará o adversário, elevando finalizações estipuladas.",
-                    "confidence": main_confidence - deterministic_rand(5, 10, 2),
+                    "confidence": main_confidence - _hash_rand(5, 10, pseudo_seed, 2),
                     "reasoning": f"Simulando desvantagem: O modelo altera as probabilidades, gerando aumento de volume ofensivo."
                 },
                 "probabilities": {
                     "goals": {"home": min(95, home_goals_prob + 15), "away": max(5, away_goals_prob - 10), "method": "ml"},
                     "cards": {"home": min(85, home_cards_prob + 20), "away": away_cards_prob, "method": "ml"},
-                    "penalty": {"home": deterministic_rand(30,50, 3), "away": deterministic_rand(20,40, 4), "method": "heuristic"},
+                    "penalty": {"home": min(95, home_penalty_base + 12), "away": min(95, away_penalty_base + 8), "method": "ml"},
                     "winner": {"home": min(80, home_win_prob + 12), "away": away_win_prob, "draw": max(5, draw_prob - 5), "method": "ml"}
                 }
             },
             "control": {
                 "mainScenario": {
                     "insight": f"Domínio da posse (65%+): O modelo determina que {homeTeam} ditará o ritmo.",
-                    "confidence": main_confidence + deterministic_rand(2, 6, 5),
+                    "confidence": main_confidence + _hash_rand(2, 6, pseudo_seed, 5),
                     "reasoning": "Controle do meio-campo reduz transições perigosas e estabiliza a projeção de Regressão em Árvore."
                 },
                 "probabilities": {
                     "goals": {"home": max(20, home_goals_prob - 10), "away": max(10, away_goals_prob - 15), "method": "ml"},
                     "cards": {"home": max(15, home_cards_prob - 15), "away": min(85, away_cards_prob + 10), "method": "ml"},
-                    "penalty": {"home": deterministic_rand(15,25, 6), "away": deterministic_rand(5,15, 7), "method": "heuristic"},
+                    "penalty": {"home": max(5, home_penalty_base - 8), "away": max(5, away_penalty_base - 10), "method": "ml"},
                     "winner": {"home": min(90, home_win_prob + 8), "away": max(5, away_win_prob - 5), "draw": draw_prob, "method": "ml"}
                 }
             }
@@ -162,8 +292,8 @@ def get_match_scenario(homeTeam: str = "Manchester City", awayTeam: str = "Liver
                 "source": "RandomForestRegressor"
             },
             "penalty": {
-                "reasoning": f"Histórico das equipes dentro da grande área e pressão em zona final resultam nestas predições heurísticas.",
-                "source": "Heurística de Presença na Área"
+                "reasoning": f"Classificador treinado com histórico de faltas na área e força relativa estima {home_penalty_base}% para {homeTeam} e {away_penalty_base}% para {awayTeam}.",
+                "source": "RandomForestClassifier"
             },
             "winner": {
                 "reasoning": f"O classificador ensemble calculou {home_win_prob}% de favoritismo para {homeTeam} contra {away_win_prob}% para {awayTeam}.",
@@ -172,30 +302,30 @@ def get_match_scenario(homeTeam: str = "Manchester City", awayTeam: str = "Liver
         },
         "timelineEvents": [
             {
-                "minute": deterministic_rand(10, 20, 10),
+                "minute": _hash_rand(10, 20, pseudo_seed, 10),
                 "type": "goal",
-                "probability": deterministic_rand(60, 85, 11),
+                "probability": _hash_rand(60, 85, pseudo_seed, 11),
                 "description": f"Pico predito de pressão ofensiva de {homeTeam}",
                 "factors": ["Projeção de IA: Início forte do mandante", "Ajuste na linha de defesa"]
             },
             {
-                "minute": deterministic_rand(30, 42, 12),
+                "minute": _hash_rand(30, 42, pseudo_seed, 12),
                 "type": "pressure",
-                "probability": deterministic_rand(55, 75, 13),
+                "probability": _hash_rand(55, 75, pseudo_seed, 13),
                 "description": "Período intenso e quebra de meio campo",
                 "factors": ["Desgaste projetado pelo modelo ML"]
             },
             {
-                "minute": deterministic_rand(55, 65, 14),
+                "minute": _hash_rand(55, 65, pseudo_seed, 14),
                 "type": "defense",
-                "probability": deterministic_rand(65, 80, 15),
+                "probability": _hash_rand(65, 80, pseudo_seed, 15),
                 "description": f"Retraimento tático natural de {awayTeam}",
                 "factors": ["Tendência dos visitantes fechar espaço"]
             },
             {
-                "minute": deterministic_rand(78, 88, 16),
+                "minute": _hash_rand(78, 88, pseudo_seed, 16),
                 "type": "goal",
-                "probability": deterministic_rand(70, 90, 17),
+                "probability": _hash_rand(70, 90, pseudo_seed, 17),
                 "description": "Fase letal - desorganização probabilística",
                 "factors": [f"Modelo detecta fraquezas tardias do {awayTeam}"]
             }
@@ -228,9 +358,10 @@ def get_match_scenario(homeTeam: str = "Manchester City", awayTeam: str = "Liver
                 "defensiveTrend": get_trend(700)
             },
             "headToHead": {
-                "homeWins": deterministic_rand(1, 5, 800),
-                "draws": deterministic_rand(1, 4, 801),
-                "awayWins": deterministic_rand(1, 5, 802)
+                "homeWins": _hash_rand(1, 5, pseudo_seed, 800),
+                "draws": _hash_rand(1, 4, pseudo_seed, 801),
+                "awayWins": _hash_rand(1, 5, pseudo_seed, 802)
             }
-        }
+        },
+        "squads": squads
     }

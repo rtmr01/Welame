@@ -11,6 +11,12 @@ Para conseguir avançar nas próximas etapas do backend e criar processadores ef
 - **Token:** Como você mencionou, ele será liberado futuramente. A infraestrutura (no arquivo `api_clients/betsapi.py`) já está pronta para lê-lo a partir de um arquivo `.env` (Variável `BETSAPI_TOKEN`). 
 - **Dados Reais da API:** Precisarei do formato real JSON retornado pelo endpoint `/events/inplay` e `/event/view` da BetsAPI. Posso consultar a documentação oficial, mas frequentemente os dados variam. É preferível validar o retorno exato assim que possuirmos o token.
 
+### Verificação executada em 2026-03-22
+- Consulta rápida ao endpoint `events/upcoming` com `sport_id=1` retornou 15 ligas no snapshot atual.
+- Filtro textual por `brasile` e `serie a` retornou vazio (`BR_FILTER []`).
+- Conclusão parcial: no recorte consultado, o feed não trouxe ligas identificadas explicitamente como Brasileirão.
+- Próximo passo recomendado: validar também os endpoints `events/ended` e/ou catálogo de ligas para confirmar se é limitação do plano, janela temporal ou cobertura da fonte.
+
 ## 3. Banco de Dados e Tipo de Armazenamento
 - Onde esses dados tratados vão viver? Vamos usar PostgreSQL (relacional via SQLAlchemy/Django) ou MongoDB (NoSQL) para os dados granulares de eventos do Statsbomb?
 - Com base na sua resposta, iremos modelar a persistência do `domain/models.py`.
