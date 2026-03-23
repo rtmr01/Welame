@@ -142,6 +142,39 @@ export default function App() {
               reasoning={apiData.scenarioData[activeScenario].mainScenario.reasoning}
             />
 
+            {/* EPL Premium Insight */}
+            {apiData.isEPL && apiData.eplAnalysis && (
+              <div className="bg-gradient-to-r from-emerald-900/40 to-teal-900/40 backdrop-blur-md border border-emerald-500/30 rounded-3xl p-6 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-emerald-500 p-2 rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+                    <Trophy className="text-emerald-950 w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-emerald-400 font-black uppercase tracking-widest text-xs">Análise Premium EPL</h2>
+                    <p className="text-emerald-100/60 text-[10px] font-medium">Dataset 2025/26 + Histórico desde 2020</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {apiData.eplAnalysis.insights.map((insight: string, idx: number) => (
+                    <div key={idx} className="flex gap-3 items-start bg-emerald-950/30 p-4 rounded-2xl border border-emerald-500/10">
+                      <div className="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <p className="text-emerald-50 text-sm leading-relaxed font-medium">{insight}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 grid grid-cols-3 gap-2">
+                  {Object.entries(apiData.eplAnalysis.probabilities).map(([key, val]: any) => (
+                    <div key={key} className="bg-black/20 p-3 rounded-xl border border-emerald-500/5 text-center">
+                      <p className="text-[10px] text-emerald-400/60 font-bold uppercase">{key === 'H' ? 'Casa' : key === 'A' ? 'Fora' : 'Empate'}</p>
+                      <p className="text-xl font-black text-emerald-50">{val}%</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Scenario Selector */}
             <ScenarioSelector
               activeScenario={activeScenario}

@@ -7,11 +7,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from api_clients.betsapi import BetsAPIClient
 from ml.predictor import predict_match
+from ml.epl_analyzer import EPLAnalyzer
 
-# Carrega token da BetsAPI de EDScript-1/.env
-load_dotenv('../.env')
+# Carrega token da BetsAPI de .env (Caminho relativo automático para portabilidade)
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '.env')
+load_dotenv(env_path)
+print(f"DEBUG: Carregando .env de {env_path}")
 
 app = FastAPI(title="Match Assistant API")
+epl_analyzer = EPLAnalyzer()
 
 app.add_middleware(
     CORSMiddleware,
@@ -236,11 +240,41 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
     def get_trend(i_offset):
         return [_hash_rand(0, 4, pseudo_seed, i_offset + j) for j in range(5)]
 
+    # Adição: EPL Specialized Analysis
+    epl_data = None
+    is_epl = False
+    
+    # Heurística simples: se um dos times está no nosso power dict da EPL
+    if epl_analyzer.get_p(homeTeam) > 0.1 or epl_analyzer.get_p(awayTeam) > 0.1:
+        is_epl = True
+        try:
+            # Tenta pegar dados live se tiver id
+            live_stats = None
+            if matchId:
+                try:
+                    res_live = BetsAPIClient().get_event_view(matchId)
+                    res = res_live.get("results", [{}])[0]
+                    stats = res.get("stats", {})
+                    if stats:
+                        live_stats = {
+                            'home_possession': int(stats.get('possession_rt', [50])[0]),
+                            'home_shots': int(stats.get('shottotal', [0])[0]),
+                            'away_possession': 100 - int(stats.get('possession_rt', [50])[0])
+                        }
+                except: pass
+            
+            epl_data = epl_analyzer.get_match_insights(homeTeam, awayTeam, live_stats)
+        except Exception as e:
+            print(f"Erro EPL Analysis: {e}")
+
     squads = _build_squads(matchId, homeTeam, awayTeam)
 
     return {
         "homeTeam": homeTeam,
         "awayTeam": awayTeam,
+        "isEPL": is_epl,
+        "eplAnalysis": epl_data,
+        "squads": squads,
         "scenarioData": {
             "standard": {
                 "mainScenario": {
@@ -365,3 +399,48 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
         },
         "squads": squads
     }
+
+
+@app.get("/api/epl/analysis")
+def get_epl_match_analysis(homeTeam: str, awayTeam: str, matchId: str | None = None):
+    """
+    Endpoint especializado para Premier League usando o modelo treinado com histórico desde 2020
+    e dados do elenco da temporada 25/26.
+    """
+    try:
+        # 1. Pegar dados ao vivo se o matchId existir
+        live_data = None
+        if matchId:
+            try:
+                client = BetsAPIClient()
+                view = client.get_event_view(match_id=matchId)
+                # Extração simplificada de dados ao vivo (exemplo)
+                # O BetsAPI retorna estatísticas em results[0]['stats']
+                res = view.get('results', [{}])[0]
+                stats = res.get('stats', {})
+                if stats:
+                    live_data = {
+                        'home_possession': int(stats.get('possession_rt', [50])[0]),
+                        'home_shots': int(stats.get('shottotal', [0])[0]),
+                        'away_possession': 100 - int(stats.get('possession_rt', [50])[0])
+                    }
+            except Exception:
+                pass
+
+        # 2. Executar análise
+        analysis = epl_analyzer.get_match_insights(homeTeam, awayTeam, live_data)
+        
+        return {
+            "status": "success",
+            "match": f"{homeTeam} vs {awayTeam}",
+            "analysis": analysis,
+            "source": "Premier League Dedicated ML Model (v2026)"
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    # Usa a porta 8001 como solicitado pelo usuário (definido no env VITE_API_URL)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

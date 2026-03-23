@@ -27,11 +27,14 @@ class BetsAPIClient:
         response.raise_for_status()
         return response.json()
 
-    def get_inplay_events(self, sport_id: int = 1) -> dict:
+    def get_inplay_events(self, sport_id: int = 1, league_id: int = None) -> dict:
         """
         Retorna eventos que estão acontecendo no momento (ao vivo).
         """
-        return self._get("events/inplay", params={"sport_id": sport_id})
+        params = {"sport_id": sport_id}
+        if league_id:
+            params["league_id"] = league_id
+        return self._get("events/inplay", params=params)
 
     def get_upcoming_events(self, sport_id: int = 1, day: str = None, league_id: int = None) -> dict:
         """
@@ -53,11 +56,13 @@ class BetsAPIClient:
         """
         return self._get("event/view", params={"event_id": event_id})
 
-    def get_ended_events(self, sport_id: int = 1, skip: int = 0, day: str = None) -> dict:
+    def get_ended_events(self, sport_id: int = 1, skip: int = 0, day: str = None, league_id: int = None) -> dict:
         """
         Retorna eventos encerrados recentemente. Útil para minerar dados históricos de treino.
         """
         params = {"sport_id": sport_id, "skip": skip}
         if day:
             params["day"] = day
+        if league_id:
+            params["league_id"] = league_id
         return self._get("events/ended", params=params)

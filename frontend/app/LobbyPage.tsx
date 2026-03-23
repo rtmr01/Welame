@@ -12,6 +12,7 @@ const SPORT_IDS: Record<string, number> = {
 const LEAGUES_CONFIG: Record<string, { id: number | null; label: string }[]> = {
     futebol: [
         { id: null, label: "Todas as Ligas" },
+        { id: 94, label: "Premier League" },
         { id: 43782, label: "COPA Rio U20" },
         { id: 43719, label: "Campeonato Paranaense U20" },
     ],
@@ -35,7 +36,7 @@ export const LobbyPage: React.FC = () => {
     const { sport } = useParams<{ sport: string }>();
     const navigate = useNavigate();
     const location = useLocation();
-    
+
     const [matches, setMatches] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -68,7 +69,7 @@ export const LobbyPage: React.FC = () => {
         const fetchMatches = async () => {
             setIsLoading(true);
             const sportId = SPORT_IDS[currentSport] || 1;
-            
+
             // Construímos os params de forma limpa
             const params = new URLSearchParams();
             params.append('sport_id', sportId.toString());
@@ -82,7 +83,7 @@ export const LobbyPage: React.FC = () => {
             }
 
             const url = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/upcoming-matches?${params.toString()}`;
-            
+
             try {
                 const res = await fetch(url);
                 const data = await res.json();
@@ -111,7 +112,7 @@ export const LobbyPage: React.FC = () => {
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-80 bg-[#00D26A]/5 blur-[120px] pointer-events-none"></div>
 
             <div className="max-w-6xl mx-auto space-y-10 relative z-10">
-                <button 
+                <button
                     onClick={() => navigate('/')}
                     className="flex items-center gap-2 text-slate-400 hover:text-[#00D26A] transition-colors font-bold uppercase text-[10px] tracking-[0.2em]"
                 >
@@ -149,11 +150,10 @@ export const LobbyPage: React.FC = () => {
                                 setSelectedLeague(league.id);
                                 if (league.id !== null) setSearchTerm(''); // Limpa busca se escolher liga
                             }}
-                            className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
-                                selectedLeague === league.id 
-                                ? "bg-[#00D26A] border-[#00D26A] text-[#1C1F5A] shadow-[0_0_20px_rgba(0,210,106,0.3)]" 
+                            className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border-2 ${selectedLeague === league.id
+                                ? "bg-[#00D26A] border-[#00D26A] text-[#1C1F5A] shadow-[0_0_20px_rgba(0,210,106,0.3)]"
                                 : "bg-[#15183d] border-[#2a2e6e] text-slate-400 hover:border-slate-500"
-                            }`}
+                                }`}
                         >
                             {league.label}
                         </button>
@@ -172,8 +172,8 @@ export const LobbyPage: React.FC = () => {
                                 </tr>
                             ) : matches.length > 0 ? (
                                 matches.map((match) => (
-                                    <tr 
-                                        key={match.id} 
+                                    <tr
+                                        key={match.id}
                                         className="hover:bg-[#00D26A]/5 transition-all group cursor-pointer"
                                         onClick={() => navigate(`/analise/${currentSport}/${match.id}`, { state: { match } })}
                                     >
@@ -181,7 +181,7 @@ export const LobbyPage: React.FC = () => {
                                             <div className="flex items-center gap-3">
                                                 <Clock size={16} className="text-[#00D26A]" />
                                                 <span className="font-black text-xl tabular-nums">
-                                                    {match.time ? new Date(match.time * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}
+                                                    {match.time ? new Date(match.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                                                 </span>
                                             </div>
                                         </td>
