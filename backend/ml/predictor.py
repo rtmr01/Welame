@@ -16,15 +16,43 @@ def get_model(name):
             return None
     return _models[name]
 
+# Carrega o dicionário de força real (Premier League 25/26) para evitar mocks se possível
+epl_power_path = os.path.join(BASE_DIR, 'epl_team_power.csv')
+team_power_db = {}
+if os.path.exists(epl_power_path):
+    try:
+        df_pw = pd.read_csv(epl_power_path)
+        # Mapeamos o squad_power (0.08 - 0.23) para a escala do modelo (40 - 90)
+        # 0.08 -> 40, 0.23 -> 90
+        for _, row in df_pw.iterrows():
+            scaled_pw = 40 + (float(row['squad_power']) - 0.08) / (0.23 - 0.08) * 50
+            team_power_db[row['Squad'].lower()] = min(95, max(30, int(scaled_pw)))
+    except Exception as e:
+        print(f"Erro ao carregar epl_team_power.csv: {e}")
+
 def get_team_power(team_name):
+    # Tenta buscar no banco de dados real primeiro
+    name_low = team_name.lower()
+    if name_low in team_power_db:
+        return team_power_db[name_low]
+    
+    # Fallback fuzzy para nomes parciais
+    for k, v in team_power_db.items():
+        if name_low in k or k in name_low:
+            return v
+
+    # Se realmente não existir, usa uma semente baseada no nome para consistência, 
+    # mas o ideal seria alimentar o CSV com mais ligas.
     val = int(hashlib.md5(team_name.encode()).hexdigest(), 16)
-    return 40 + (val % 50)
+    return 55 + (val % 20) # Reduzido o range de aleatoriedade para times desconhecidos
 
 
 def get_team_box_fouls_profile(team_name):
-    # Perfil histórico sintético de faltas sofridas na área por jogo.
-    val = int(hashlib.md5(f"box-{team_name}".encode()).hexdigest(), 16)
-    return 1 + (val % 6)
+    # Baseado na força do time ao invés de puro hash aleatório
+    power = get_team_power(team_name)
+    # Times mais fortes costumam sofrer mais faltas na área por pressão (heurística tática real)
+    base_fouls = 1 + (power - 40) // 10
+    return max(1, min(6, base_fouls))
 
 def predict_match(home_team, away_team):
     home_power = get_team_power(home_team)

@@ -14,6 +14,12 @@ def train_epl():
         return
 
     df = pd.read_csv(data_path)
+    # Remove duplicatas para evitar acurária irreal
+    initial_count = len(df)
+    df = df.drop_duplicates(subset=['id'])
+    if len(df) < initial_count:
+        print(f"DEBUG: Removidas {initial_count - len(df)} partidas duplicadas.")
+    
     df_power = pd.read_csv(power_path)
     
     # Criar dict de power

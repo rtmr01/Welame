@@ -9,8 +9,19 @@ from dotenv import load_dotenv
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from api_clients.betsapi import BetsAPIClient
 
-env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
-load_dotenv(env_path)
+# Busca o .env na raiz (Pai do Pai se rodando de ml/)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+env_locations = [
+    os.path.join(current_dir, '.env'),
+    os.path.join(os.path.dirname(current_dir), '.env'),
+    os.path.join(os.path.dirname(os.path.dirname(current_dir)), '.env')
+]
+
+for loc in env_locations:
+    if os.path.exists(loc):
+        load_dotenv(loc)
+        print(f"DEBUG: .env carregado de {loc}")
+        break
 
 EPL_LEAGUE_ID = 94
 SPORT_ID = 1
@@ -22,11 +33,12 @@ def fetch_epl_history(pages=60):
     all_matches = []
     
     for page in range(pages):
-        print(f"Buscando página {page+1} de {pages}...")
+        # O skip no BetsAPI pula N registros. Assumindo que cada página retorna 50 resultados, 
+        # para paginar corretamente o skip deve ser page * 50.
+        skip_records = page * 50
+        print(f"Buscando posição {skip_records} (Página {page+1}/{pages})...")
         try:
-            # v1/events/ended?sport_id=1&league_id=94&skip=page
-            # O BetsAPI as vezes usa 'page' ou 'skip'. No nosso cliente implementamos como 'skip'.
-            res = client.get_ended_events(sport_id=SPORT_ID, league_id=EPL_LEAGUE_ID, skip=page)
+            res = client.get_ended_events(sport_id=SPORT_ID, league_id=EPL_LEAGUE_ID, skip=skip_records)
             events = res.get('results', [])
             
             if not events:

@@ -9,8 +9,12 @@ from api_clients.betsapi import BetsAPIClient
 from ml.predictor import predict_match
 from ml.epl_analyzer import EPLAnalyzer
 
-# Carrega token da BetsAPI de .env (Caminho relativo corrigido)
-env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+# Carrega token da BetsAPI de .env (Caminho relativo corrigido para buscar na raiz se não estiver no backend)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(current_dir, '.env')
+if not os.path.exists(env_path):
+    env_path = os.path.join(os.path.dirname(current_dir), '.env')
+
 load_dotenv(env_path)
 print(f"DEBUG: Carregando .env de {env_path}")
 
@@ -75,17 +79,10 @@ class MatchScenarioQuery(BaseModel):
         return value
 
 
-def _hash_rand(min_val: int, max_val: int, pseudo_seed: int, index: int) -> int:
-    val = int(hashlib.md5(f"{pseudo_seed}-{index}".encode()).hexdigest(), 16)
-    return min_val + (val % (max_val - min_val + 1))
 
-
-def _fallback_squad(team_name: str) -> dict[str, Any]:
-    players = [
-        {"name": f"{team_name} Jogador {i}", "position": "N/A"}
-        for i in range(1, 12)
-    ]
-    return {"formation": "4-3-3", "players": players, "source": "fallback"}
+def _empty_squad(team_name: str) -> dict[str, Any]:
+    # Retorna uma estrutura vazia se não houver dados reais (sem jogadores mock)
+    return {"formation": "N/A", "players": [], "source": "no_data"}
 
 
 def _extract_players(value: Any) -> list[dict[str, str]]:
@@ -128,13 +125,13 @@ def _extract_squads_from_event_view(view: dict[str, Any], home_team: str, away_t
     return {
         "home": {
             "formation": home_formation,
-            "players": home_unique if home_unique else _fallback_squad(home_team)["players"],
-            "source": "betsapi" if home_unique else "fallback",
+            "players": home_unique,
+            "source": "betsapi" if home_unique else "no_data",
         },
         "away": {
             "formation": away_formation,
-            "players": away_unique if away_unique else _fallback_squad(away_team)["players"],
-            "source": "betsapi" if away_unique else "fallback",
+            "players": away_unique,
+            "source": "betsapi" if away_unique else "no_data",
         },
     }
 
@@ -142,16 +139,16 @@ def _extract_squads_from_event_view(view: dict[str, Any], home_team: str, away_t
 def _build_squads(match_id: str | None, home_team: str, away_team: str) -> dict[str, Any]:
     if not match_id:
         return {
-            "home": _fallback_squad(home_team),
-            "away": _fallback_squad(away_team),
+            "home": _empty_squad(home_team),
+            "away": _empty_squad(away_team),
         }
     try:
         view = BetsAPIClient().get_event_view(match_id)
         return _extract_squads_from_event_view(view, home_team, away_team)
     except Exception:
         return {
-            "home": _fallback_squad(home_team),
-            "away": _fallback_squad(away_team),
+            "home": _empty_squad(home_team),
+            "away": _empty_squad(away_team),
         }
 
 
@@ -279,17 +276,10 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
     home_penalty_base = ml_preds["penalty"]["home"]
     away_penalty_base = ml_preds["penalty"]["away"]
     
-    # Gerando dados secundários a partir de semente para mante-los estaticos mas variados
-    pseudo_seed = int(hashlib.md5(f"{homeTeam}-{awayTeam}".encode()).hexdigest(), 16)
-    
-    main_confidence = _hash_rand(75, 95, pseudo_seed, 0)
-    
-    def get_recent_form(i_offset):
-        return [{"result": ["W", "D", "L"][_hash_rand(0, 2, pseudo_seed, i_offset + j)], 
-                 "score": f"{_hash_rand(0,3, pseudo_seed, i_offset + j + 10)}-{_hash_rand(0,2, pseudo_seed, i_offset + j + 20)}"} for j in range(5)]
-        
-    def get_trend(i_offset):
-        return [_hash_rand(0, 4, pseudo_seed, i_offset + j) for j in range(5)]
+    # Determina a confiança baseada na probabilidade do favorito (real)
+    main_confidence = int(max(home_win_prob, away_win_prob, draw_prob))
+    if main_confidence < 40: main_confidence = 40
+    if main_confidence > 98: main_confidence = 98
 
     # Adição: EPL Specialized Analysis
     epl_data = None
@@ -298,15 +288,27 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
     # 4. Dados Históricos Reais vs Sintéticos
     league_id = None
     event_view = None
+    league_name = ""
+    home_name_real = ""
+    away_name_real = ""
     
     if matchId:
         try:
             event_view = BetsAPIClient().get_event_view(matchId)
             results = event_view.get("results", [{}])
             if results:
-                league_id = results[0].get("league", {}).get("id")
+                res0 = results[0]
+                league_id = res0.get("league", {}).get("id")
+                league_name = res0.get("league", {}).get("name", "")
+                home_name_real = res0.get("home", {}).get("name")
+                away_name_real = res0.get("away", {}).get("name")
         except Exception:
             pass
+
+    # Refinamento is_epl (Premier League Detection Real)
+    epl_keywords = ["premier league", "イングランド・プレミアリーグ", "잉글랜드 프리미어리그"]
+    if league_id == 1 or any(k in league_name.lower() for k in epl_keywords):
+        is_epl = True
 
     # Squads (Reaproveitando view se disponível)
     if event_view:
@@ -320,12 +322,9 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
 
     def get_trends_from_history(history):
         if not history:
-            return get_trend(300), get_trend(400)
+            return [], [] # Sem fallback mockado
         off = [m["scored"] for m in history]
         deff = [m["conceded"] for m in history]
-        # Preenche com zeros se tiver menos de 5
-        while len(off) < 5: off.append(0)
-        while len(deff) < 5: deff.append(0)
         return off[:5], deff[:5]
 
     off_home, def_home = get_trends_from_history(real_history_home)
@@ -353,21 +352,21 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
 
     matchHistory = {
         "homeTeam": {
-            "name": homeTeam,
-            "recentForm": real_history_home if real_history_home else get_recent_form(200),
+            "name": home_name_real or homeTeam,
+            "recentForm": real_history_home,
             "offensiveTrend": off_home,
             "defensiveTrend": def_home
         },
         "awayTeam": {
-            "name": awayTeam,
-            "recentForm": real_history_away if real_history_away else get_recent_form(500),
+            "name": away_name_real or awayTeam,
+            "recentForm": real_history_away,
             "offensiveTrend": off_away,
             "defensiveTrend": def_away
         },
         "headToHead": {
-            "homeWins": _hash_rand(1, 5, pseudo_seed, 800),
-            "draws": _hash_rand(1, 4, pseudo_seed, 801),
-            "awayWins": _hash_rand(1, 5, pseudo_seed, 802)
+            "homeWins": 0,
+            "draws": 0,
+            "awayWins": 0
         }
     }
 
@@ -394,7 +393,7 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
             "pressure": {
                 "mainScenario": {
                     "insight": f"Num cenário de pressão contínua, {homeTeam} sufocará o adversário, elevando finalizações estipuladas.",
-                    "confidence": main_confidence - _hash_rand(5, 10, pseudo_seed, 2),
+                    "confidence": max(30, main_confidence - 10),
                     "reasoning": f"Simulando desvantagem: O modelo altera as probabilidades, gerando aumento de volume ofensivo."
                 },
                 "probabilities": {
@@ -407,7 +406,7 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
             "control": {
                 "mainScenario": {
                     "insight": f"Domínio da posse (65%+): O modelo determina que {homeTeam} ditará o ritmo.",
-                    "confidence": main_confidence + _hash_rand(2, 6, pseudo_seed, 5),
+                    "confidence": min(99, main_confidence + 5),
                     "reasoning": "Controle do meio-campo reduz transições perigosas e estabiliza a projeção de Regressão em Árvore."
                 },
                 "probabilities": {
@@ -436,36 +435,7 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
                 "source": "RandomForestClassifier"
             }
         },
-        "timelineEvents": [
-            {
-                "minute": _hash_rand(10, 20, pseudo_seed, 10),
-                "type": "goal",
-                "probability": _hash_rand(60, 85, pseudo_seed, 11),
-                "description": f"Pico predito de pressão ofensiva de {homeTeam}",
-                "factors": ["Projeção de IA: Início forte do mandante", "Ajuste na linha de defesa"]
-            },
-            {
-                "minute": _hash_rand(30, 42, pseudo_seed, 12),
-                "type": "pressure",
-                "probability": _hash_rand(55, 75, pseudo_seed, 13),
-                "description": "Período intenso e quebra de meio campo",
-                "factors": ["Desgaste projetado pelo modelo ML"]
-            },
-            {
-                "minute": _hash_rand(55, 65, pseudo_seed, 14),
-                "type": "defense",
-                "probability": _hash_rand(65, 80, pseudo_seed, 15),
-                "description": f"Retraimento tático natural de {awayTeam}",
-                "factors": ["Tendência dos visitantes fechar espaço"]
-            },
-            {
-                "minute": _hash_rand(78, 88, pseudo_seed, 16),
-                "type": "goal",
-                "probability": _hash_rand(70, 90, pseudo_seed, 17),
-                "description": "Fase letal - desorganização probabilística",
-                "factors": [f"Modelo detecta fraquezas tardias do {awayTeam}"]
-            }
-        ],
+        "timelineEvents": [], # Removido dados mockados
         "autoComments": [
             {
                 "text": f"Machine Learning ressalta: {homeTeam} apresenta um número esperado de cartões de {home_cards_exp}.",
