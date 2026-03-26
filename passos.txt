@@ -1,0 +1,92 @@
+============================================================
+  PASSOS PARA CONFIGURAR O PROJETO APÓS GIT PULL
+============================================================
+
+Os arquivos de modelo (.pkl) e dados gerados NÃO estão no
+repositório (são gerados localmente). Siga os passos abaixo.
+
+------------------------------------------------------------
+PRÉ-REQUISITOS
+------------------------------------------------------------
+- Python 3.10+
+- Node.js 18+
+- Token da BetsAPI
+
+------------------------------------------------------------
+PASSO 1 — Configurar variáveis de ambiente
+------------------------------------------------------------
+Na pasta: /backend
+
+Copie o arquivo de exemplo e preencha com seus dados reais:
+  cp .env.example .env
+
+Abra o arquivo .env e preencha:
+  BETSAPI_TOKEN=seu_token_aqui
+  VITE_API_URL=http://localhost:8001
+
+------------------------------------------------------------
+PASSO 2 — Instalar dependências do backend
+------------------------------------------------------------
+Na pasta: /backend
+
+  pip install -r requirements.txt
+
+------------------------------------------------------------
+PASSO 3 — Gerar os modelos de predição de jogadores
+------------------------------------------------------------
+Na pasta: /backend/ml
+
+  python rebuild_player_data.py
+
+Este script lê os dados reais da temporada 25/26
+(já incluídos no repositório em data/raw/) e gera os
+seguintes arquivos localmente:
+
+  - player_history_avgs.pkl
+  - players_dataset.csv
+  - model_player_shots_on.pkl
+  - model_player_goals.pkl
+  - model_player_cards.pkl
+
+------------------------------------------------------------
+PASSO 4 — Iniciar o backend
+------------------------------------------------------------
+Na pasta: /backend
+
+  python main.py
+
+O servidor ficará disponível em: http://localhost:8001
+
+------------------------------------------------------------
+PASSO 5 — Instalar dependências do frontend
+------------------------------------------------------------
+Na pasta: /frontend
+
+  npm install
+
+------------------------------------------------------------
+PASSO 6 — Iniciar o frontend
+------------------------------------------------------------
+Na pasta: /frontend
+
+  npm run dev
+
+O app ficará disponível em: http://localhost:5173
+
+------------------------------------------------------------
+RESUMO DE COMANDOS (ordem exata)
+------------------------------------------------------------
+  cd backend
+  cp .env.example .env         # edite o .env com seu token
+  pip install -r requirements.txt
+  cd ml
+  python rebuild_player_data.py
+  cd ..
+  python main.py               # deixe rodando em um terminal
+
+  # em outro terminal:
+  cd frontend
+  npm install
+  npm run dev
+
+============================================================
