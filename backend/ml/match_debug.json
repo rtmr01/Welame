@@ -1,0 +1,454 @@
+{
+    "id": "10496353",
+    "sport_id": "1",
+    "time": "1774188900",
+    "time_status": "3",
+    "league": {
+        "id": "94",
+        "name": "England Premier League",
+        "cc": "gb"
+    },
+    "home": {
+        "id": "17212",
+        "name": "Tottenham",
+        "image_id": "33",
+        "cc": "gb"
+    },
+    "away": {
+        "id": "43851",
+        "name": "Nottm Forest",
+        "image_id": "14",
+        "cc": "gb"
+    },
+    "ss": "0-3",
+    "scores": {
+        "2": {
+            "home": "0",
+            "away": "3"
+        },
+        "1": {
+            "home": "0",
+            "away": "1"
+        }
+    },
+    "stats": {
+        "action_areas": [
+            "24.70",
+            "28.20"
+        ],
+        "attacks": [
+            "119",
+            "82"
+        ],
+        "ball_safe": [
+            "75",
+            "77"
+        ],
+        "corners": [
+            "13",
+            "3"
+        ],
+        "corner_f": [
+            "13",
+            "3"
+        ],
+        "corner_h": [
+            "8",
+            "2"
+        ],
+        "crosses": [
+            "17",
+            "7"
+        ],
+        "crossing_accuracy": [
+            "0.18",
+            "0.29"
+        ],
+        "dangerous_attacks": [
+            "64",
+            "32"
+        ],
+        "fouls": [
+            "13",
+            "12"
+        ],
+        "freekicks": [
+            "13",
+            "15"
+        ],
+        "goalattempts": [
+            "9",
+            "7"
+        ],
+        "goalkicks": [
+            "5",
+            "11"
+        ],
+        "goals": [
+            "0",
+            "3"
+        ],
+        "injuries": [
+            "1",
+            "0"
+        ],
+        "key_passes": [
+            "10",
+            "7"
+        ],
+        "offsides": [
+            "2",
+            "0"
+        ],
+        "off_target": [
+            "11",
+            "1"
+        ],
+        "on_target": [
+            "3",
+            "7"
+        ],
+        "passing_accuracy": [
+            "0.79",
+            "0.75"
+        ],
+        "penalties": [
+            "0",
+            "0"
+        ],
+        "possession_rt": [
+            "58",
+            "42"
+        ],
+        "redcards": [
+            "0",
+            "0"
+        ],
+        "saves": [
+            "4",
+            "2"
+        ],
+        "shots_blocked": [
+            "5",
+            "1"
+        ],
+        "substitutions": [
+            "5",
+            "5"
+        ],
+        "throwins": [
+            "16",
+            "12"
+        ],
+        "xg": [
+            "1.13",
+            "1.47"
+        ],
+        "yellowcards": [
+            "1",
+            "2"
+        ],
+        "yellowred_cards": [
+            "0",
+            "0"
+        ]
+    },
+    "extra": {
+        "length": 90,
+        "home_pos": "16",
+        "away_pos": "17",
+        "away_manager": {
+            "id": "78208",
+            "name": "Vitor Pereira",
+            "cc": "pt"
+        },
+        "home_manager": {
+            "id": "2928",
+            "name": "Igor Tudor",
+            "cc": "hr"
+        },
+        "numberofperiods": "2",
+        "periodlength": "45",
+        "referee": {
+            "id": "65702",
+            "name": "Michael Oliver",
+            "cc": "gb"
+        },
+        "stadium_data": {
+            "id": "28762",
+            "name": "Tottenham Hotspur Stadium",
+            "city": "London",
+            "country": "England",
+            "capacity": "60463",
+            "googlecoords": "51.6042,0.0662"
+        },
+        "round": "31"
+    },
+    "events": [
+        {
+            "id": "290445260",
+            "text": "10' - 1st Corner - Tottenham"
+        },
+        {
+            "id": "290445865",
+            "text": "14' - 2nd Corner - Tottenham"
+        },
+        {
+            "id": "290445883",
+            "text": "13' - 1st Shot Off Target - Tel (Tottenham)]"
+        },
+        {
+            "id": "290445964",
+            "text": "15' - 3rd Corner - Tottenham"
+        },
+        {
+            "id": "290445965",
+            "text": "15' - Race to 3 Corners - Tottenham"
+        },
+        {
+            "id": "290446156",
+            "text": "15' - 2nd Shot Off Target - Richarlison (Tottenham)]"
+        },
+        {
+            "id": "290446513",
+            "text": "16' - 1st Offside - Tottenham"
+        },
+        {
+            "id": "290446792",
+            "text": "18' - 1st Shot On Target - Giraud-Hutchinson (Nottm Forest)]"
+        },
+        {
+            "id": "290447546",
+            "text": "20' - 3rd Shot Off Target - Sarr (Tottenham)]"
+        },
+        {
+            "id": "290449253",
+            "text": "28' - 2nd Offside - Tottenham"
+        },
+        {
+            "id": "290449537",
+            "text": "31' - 4th Corner - Tottenham"
+        },
+        {
+            "id": "290449770",
+            "text": "32' - 5th Corner - Tottenham"
+        },
+        {
+            "id": "290449771",
+            "text": "32' - Race to 5 Corners - Tottenham"
+        },
+        {
+            "id": "290450147",
+            "text": "34' - 6th Corner - Tottenham"
+        },
+        {
+            "id": "290450251",
+            "text": "34' - 7th Corner - Tottenham"
+        },
+        {
+            "id": "290450252",
+            "text": "34' - Race to 7 Corners - Tottenham"
+        },
+        {
+            "id": "290450339",
+            "text": "35' - 8th Corner - Tottenham"
+        },
+        {
+            "id": "290451526",
+            "text": "45' - 9th Corner - Nottm Forest"
+        },
+        {
+            "id": "290451680",
+            "text": "45' - 10th Corner - Nottm Forest"
+        },
+        {
+            "id": "290451692",
+            "text": "45' - 2nd Shot On Target - Jesus (Nottm Forest)]"
+        },
+        {
+            "id": "290451766",
+            "text": "45' - 1st Goal - Jesus  (Nottm Forest) - Header (Assist: Williams)"
+        },
+        {
+            "id": "290451905",
+            "text": "45' - 3rd Shot On Target - Jesus (Nottm Forest)]"
+        },
+        {
+            "id": "290451944",
+            "text": "45' - 1st Assist - Williams (Nottm Forest)]"
+        },
+        {
+            "id": "290452095",
+            "text": "45+2' - 4th Shot Off Target - Sarr (Tottenham)]"
+        },
+        {
+            "id": "290452337",
+            "text": "45+2' - 4th Shot On Target - Tel (Tottenham)]"
+        },
+        {
+            "id": "290452581",
+            "text": "Score After First Half - 0-1"
+        },
+        {
+            "id": "290456044",
+            "text": "46' ~ Substitution ~ Udogie ~ van de Ven ~(Tottenham)"
+        },
+        {
+            "id": "290456214",
+            "text": "46' ~ Substitution ~ Bergvall ~ Spence ~(Tottenham)"
+        },
+        {
+            "id": "290456839",
+            "text": "50' - 5th Shot On Target - Williams (Nottm Forest)]"
+        },
+        {
+            "id": "290456920",
+            "text": "51' - 11th Corner - Tottenham"
+        },
+        {
+            "id": "290456921",
+            "text": "51' - Race to 9 Corners - Tottenham"
+        },
+        {
+            "id": "290457358",
+            "text": "53' ~ 1st Yellow Card ~ Sangare ~(Nottm Forest)"
+        },
+        {
+            "id": "290457487",
+            "text": "54' - 5th Shot Off Target - Romero (Tottenham)]"
+        },
+        {
+            "id": "290457867",
+            "text": "56' - 6th Shot Off Target - Gray (Tottenham)]"
+        },
+        {
+            "id": "290457893",
+            "text": "56' - 7th Shot Off Target - Gray (Tottenham)]"
+        },
+        {
+            "id": "290458885",
+            "text": "60' - 8th Shot Off Target - Giraud-Hutchinson (Nottm Forest)]"
+        },
+        {
+            "id": "290459214",
+            "text": "62' - 2nd Goal - Gibbs-White  (Nottm Forest) - Shot (Assist: Hudson-Odoi)"
+        },
+        {
+            "id": "290459334",
+            "text": "62' - 6th Shot On Target - Gibbs-White (Nottm Forest)]"
+        },
+        {
+            "id": "290459454",
+            "text": "62' - 2nd Assist - Hudson-Odoi (Nottm Forest)]"
+        },
+        {
+            "id": "290459910",
+            "text": "68' - 12th Corner - Tottenham"
+        },
+        {
+            "id": "290460666",
+            "text": "68' - 9th Shot Off Target - Danso (Tottenham)]"
+        },
+        {
+            "id": "290460886",
+            "text": "67' ~ Substitution ~ Muani ~ Tel ~(Tottenham)"
+        },
+        {
+            "id": "290460899",
+            "text": "67' ~ Substitution ~ Simons ~ Richarlison ~(Tottenham)"
+        },
+        {
+            "id": "290461276",
+            "text": "70' ~ Substitution ~ Yates ~ Hudson-Odoi ~(Nottm Forest)"
+        },
+        {
+            "id": "290461976",
+            "text": "70' ~ Substitution ~ Awoniyi ~ Jesus ~(Nottm Forest)"
+        },
+        {
+            "id": "290462129",
+            "text": "75' - 10th Shot Off Target - Bergvall (Tottenham)]"
+        },
+        {
+            "id": "290462273",
+            "text": "77' - 13th Corner - Tottenham"
+        },
+        {
+            "id": "290462373",
+            "text": "78' - 14th Corner - Tottenham"
+        },
+        {
+            "id": "290462386",
+            "text": "77' - 11th Shot Off Target - Sarr (Tottenham)]"
+        },
+        {
+            "id": "290462714",
+            "text": "80' ~ Substitution ~ Ndoye ~ Giraud-Hutchinson ~(Nottm Forest)"
+        },
+        {
+            "id": "290462926",
+            "text": "82' ~ 2nd Yellow Card ~ Udogie ~(Tottenham)"
+        },
+        {
+            "id": "290463170",
+            "text": "83' ~ Substitution ~ Gallagher ~ Gray ~(Tottenham)"
+        },
+        {
+            "id": "290463334",
+            "text": "85' - 7th Shot On Target - Williams (Nottm Forest)]"
+        },
+        {
+            "id": "290463649",
+            "text": "87' - 15th Corner - Nottm Forest"
+        },
+        {
+            "id": "290463851",
+            "text": "87' - 3rd Goal - Awoniyi  (Nottm Forest) - Shot (Assist: Williams)"
+        },
+        {
+            "id": "290463901",
+            "text": "87' - 8th Shot On Target - Awoniyi (Nottm Forest)]"
+        },
+        {
+            "id": "290463962",
+            "text": "87' - 3rd Assist - Williams (Nottm Forest)]"
+        },
+        {
+            "id": "290463978",
+            "text": "88' ~ 3rd Yellow Card ~ Awoniyi ~(Nottm Forest)"
+        },
+        {
+            "id": "290464177",
+            "text": "89' - 9th Shot On Target - Solanke (Tottenham)]"
+        },
+        {
+            "id": "290464178",
+            "text": "89' - 16th Corner - Tottenham"
+        },
+        {
+            "id": "290464318",
+            "text": "89' - 12th Shot Off Target - Muani (Tottenham)]"
+        },
+        {
+            "id": "290464388",
+            "text": "89' - 10th Shot On Target - Solanke (Tottenham)]"
+        },
+        {
+            "id": "290465559",
+            "text": "90+1' ~ Substitution ~ Dominguez ~ Anderson ~(Nottm Forest)"
+        },
+        {
+            "id": "290465560",
+            "text": "90+1' ~ Substitution ~ McAtee ~ Gibbs-White ~(Nottm Forest)"
+        },
+        {
+            "id": "290465631",
+            "text": "Score After Full Time - 0-3"
+        }
+    ],
+    "has_lineup": 1,
+    "inplay_created_at": "1774188087",
+    "inplay_updated_at": "1774196072",
+    "confirmed_at": "1774420763",
+    "bet365_id": "190299254"
+}

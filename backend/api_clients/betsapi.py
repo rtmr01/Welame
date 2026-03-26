@@ -66,3 +66,10 @@ class BetsAPIClient:
         if league_id:
             params["league_id"] = league_id
         return self._get("events/ended", params=params)
+
+    def get_event_lineup(self, event_id: str) -> dict:
+        """
+        Retorna a escalação detalhada e possivelmente estatísticas individuais (se disponíveis).
+        """
+        return self._get("event/lineup", params={"event_id": event_id})
+

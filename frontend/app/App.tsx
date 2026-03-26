@@ -8,6 +8,7 @@ import { AutoComments } from './components/AutoComments';
 import { MatchHistory } from './components/MatchHistory';
 import { ScenarioSelector, ScenarioType } from './components/ScenarioSelector';
 import { SquadDetails } from './components/SquadDetails';
+import { PlayerStats } from './components/PlayerStats';
 import { Goal, AlertTriangle, Flag, Trophy } from 'lucide-react';
 
 const SPORT_IDS: Record<string, number> = {
@@ -256,6 +257,13 @@ export default function App() {
               homeTeam={apiData.matchHistory.homeTeam}
               awayTeam={apiData.matchHistory.awayTeam}
               headToHead={apiData.matchHistory.headToHead}
+            />
+
+            {/* Player Stats */}
+            <PlayerStats
+              homeTeam={apiData.homeTeam}
+              awayTeam={apiData.awayTeam}
+              matchId={selectedMatchId}
             />
 
             {/* Squad Details */}

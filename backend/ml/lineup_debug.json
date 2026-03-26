@@ -1,0 +1,379 @@
+{
+    "success": 1,
+    "results": {
+        "home": {
+            "formation": "3-4-2-1",
+            "startinglineup": [
+                {
+                    "player": {
+                        "id": "553606",
+                        "name": "Guglielmo Vicario",
+                        "cc": "it"
+                    },
+                    "shirtnumber": "1",
+                    "pos": "Guard"
+                },
+                {
+                    "player": {
+                        "id": "1564490",
+                        "name": "Djed Spence",
+                        "cc": "gb"
+                    },
+                    "shirtnumber": "24",
+                    "pos": "Defender"
+                },
+                {
+                    "player": {
+                        "id": "803610",
+                        "name": "Kevin Danso",
+                        "cc": "at"
+                    },
+                    "shirtnumber": "4",
+                    "pos": "Defender"
+                },
+                {
+                    "player": {
+                        "id": "952278",
+                        "name": "Cristian Romero",
+                        "cc": "ar"
+                    },
+                    "shirtnumber": "17",
+                    "pos": "Defender"
+                },
+                {
+                    "player": {
+                        "id": "1938216",
+                        "name": "Micky Van de Ven",
+                        "cc": "nl"
+                    },
+                    "shirtnumber": "37",
+                    "pos": "Defender"
+                },
+                {
+                    "player": {
+                        "id": "1363568",
+                        "name": "Pedro Porro",
+                        "cc": "es"
+                    },
+                    "shirtnumber": "23",
+                    "pos": "Defender"
+                },
+                {
+                    "player": {
+                        "id": "2278985",
+                        "name": "Archie Gray",
+                        "cc": "gb"
+                    },
+                    "shirtnumber": "14",
+                    "pos": "Midfielder"
+                },
+                {
+                    "player": {
+                        "id": "1957969",
+                        "name": "Pape Matar Sarr",
+                        "cc": "sn"
+                    },
+                    "shirtnumber": "29",
+                    "pos": "Midfielder"
+                },
+                {
+                    "player": {
+                        "id": "2059277",
+                        "name": "Mathys Tel",
+                        "cc": "fr"
+                    },
+                    "shirtnumber": "11",
+                    "pos": "Forward"
+                },
+                {
+                    "player": {
+                        "id": "992069",
+                        "name": "Richarlison",
+                        "cc": "br"
+                    },
+                    "shirtnumber": "9",
+                    "pos": "Forward"
+                },
+                {
+                    "player": {
+                        "id": "361420",
+                        "name": "Dominic Solanke",
+                        "cc": "gb"
+                    },
+                    "shirtnumber": "19",
+                    "pos": "Forward"
+                }
+            ],
+            "substitutes": [
+                {
+                    "player": {
+                        "id": "364612",
+                        "name": "Joao Palhinha",
+                        "cc": "pt"
+                    },
+                    "shirtnumber": "6",
+                    "pos": "Midfielder"
+                },
+                {
+                    "player": {
+                        "id": "2397923",
+                        "name": "Lucas Bergvall",
+                        "cc": "se"
+                    },
+                    "shirtnumber": "15",
+                    "pos": "Midfielder"
+                },
+                {
+                    "player": {
+                        "id": "1297742",
+                        "name": "Conor Gallagher",
+                        "cc": "gb"
+                    },
+                    "shirtnumber": "22",
+                    "pos": "Midfielder"
+                },
+                {
+                    "player": {
+                        "id": "1642306",
+                        "name": "Radu Dragusin",
+                        "cc": "ro"
+                    },
+                    "shirtnumber": "3",
+                    "pos": "Defender"
+                },
+                {
+                    "player": {
+                        "id": "1103411",
+                        "name": "Randal Kolo Muani",
+                        "cc": "fr"
+                    },
+                    "shirtnumber": "39",
+                    "pos": "Forward"
+                },
+                {
+                    "player": {
+                        "id": "1722002",
+                        "name": "Destiny Udogie",
+                        "cc": "it"
+                    },
+                    "shirtnumber": "13",
+                    "pos": "Defender"
+                },
+                {
+                    "player": {
+                        "id": "1726752",
+                        "name": "Antonin Kinsky",
+                        "cc": "cz"
+                    },
+                    "shirtnumber": "31",
+                    "pos": "Guard"
+                },
+                {
+                    "player": {
+                        "id": "1885046",
+                        "name": "Xavi Simons",
+                        "cc": "nl"
+                    },
+                    "shirtnumber": "7",
+                    "pos": "Forward"
+                },
+                {
+                    "player": {
+                        "id": "2714232",
+                        "name": "Souza",
+                        "cc": "br"
+                    },
+                    "shirtnumber": "38",
+                    "pos": "Defender"
+                }
+            ]
+        },
+        "away": {
+            "formation": "4-2-3-1",
+            "startinglineup": [
+                {
+                    "player": {
+                        "id": "78152",
+                        "name": "Matz Sels",
+                        "cc": "be"
+                    },
+                    "shirtnumber": "26",
+                    "pos": "Guard"
+                },
+                {
+                    "player": {
+                        "id": "284421",
+                        "name": "Ola Aina",
+                        "cc": "ng"
+                    },
+                    "shirtnumber": "34",
+                    "pos": "Defender"
+                },
+                {
+                    "player": {
+                        "id": "976055",
+                        "name": "Nikola Milenkovic",
+                        "cc": "rs"
+                    },
+                    "shirtnumber": "31",
+                    "pos": "Defender"
+                },
+                {
+                    "player": {
+                        "id": "2361593",
+                        "name": "Murillo",
+                        "cc": "br"
+                    },
+                    "shirtnumber": "5",
+                    "pos": "Midfielder"
+                },
+                {
+                    "player": {
+                        "id": "1298482",
+                        "name": "Neco Williams",
+                        "cc": "gb"
+                    },
+                    "shirtnumber": "3",
+                    "pos": "Defender"
+                },
+                {
+                    "player": {
+                        "id": "1017603",
+                        "name": "Ibrahim Sangare",
+                        "cc": "ci"
+                    },
+                    "shirtnumber": "6",
+                    "pos": "Midfielder"
+                },
+                {
+                    "player": {
+                        "id": "1635776",
+                        "name": "Elliot Anderson",
+                        "cc": "gb"
+                    },
+                    "shirtnumber": "8",
+                    "pos": "Midfielder"
+                },
+                {
+                    "player": {
+                        "id": "2284735",
+                        "name": "Omari Hutchinson",
+                        "cc": "gb"
+                    },
+                    "shirtnumber": "21",
+                    "pos": "Midfielder"
+                },
+                {
+                    "player": {
+                        "id": "1089760",
+                        "name": "Morgan Gibbs-White",
+                        "cc": "gb"
+                    },
+                    "shirtnumber": "10",
+                    "pos": "Midfielder"
+                },
+                {
+                    "player": {
+                        "id": "1089772",
+                        "name": "Callum Hudson-Odoi",
+                        "cc": "gb"
+                    },
+                    "shirtnumber": "7",
+                    "pos": "Forward"
+                },
+                {
+                    "player": {
+                        "id": "1744189",
+                        "name": "Igor Jesus",
+                        "cc": "br"
+                    },
+                    "shirtnumber": "19",
+                    "pos": "Forward"
+                }
+            ],
+            "substitutes": [
+                {
+                    "player": {
+                        "id": "1556269",
+                        "name": "Dan Ndoye",
+                        "cc": "ch"
+                    },
+                    "shirtnumber": "14",
+                    "pos": "Forward"
+                },
+                {
+                    "player": {
+                        "id": "125274",
+                        "name": "Stefan Ortega",
+                        "cc": "de"
+                    },
+                    "shirtnumber": "27",
+                    "pos": "Guard"
+                },
+                {
+                    "player": {
+                        "id": "2221700",
+                        "name": "James McAtee",
+                        "cc": "gb"
+                    },
+                    "shirtnumber": "24",
+                    "pos": "Midfielder"
+                },
+                {
+                    "player": {
+                        "id": "359664",
+                        "name": "Taiwo Awoniyi",
+                        "cc": "ng"
+                    },
+                    "shirtnumber": "9",
+                    "pos": "Forward"
+                },
+                {
+                    "player": {
+                        "id": "1014789",
+                        "name": "Ryan Yates",
+                        "cc": "gb"
+                    },
+                    "shirtnumber": "22",
+                    "pos": "Midfielder"
+                },
+                {
+                    "player": {
+                        "id": "1888546",
+                        "name": "Morato",
+                        "cc": "pt"
+                    },
+                    "shirtnumber": "4",
+                    "pos": "Defender"
+                },
+                {
+                    "player": {
+                        "id": "1718626",
+                        "name": "Luca Netz",
+                        "cc": "de"
+                    },
+                    "shirtnumber": "25",
+                    "pos": "Defender"
+                },
+                {
+                    "player": {
+                        "id": "1103661",
+                        "name": "Nicolas Dominguez",
+                        "cc": "ar"
+                    },
+                    "shirtnumber": "16",
+                    "pos": "Midfielder"
+                },
+                {
+                    "player": {
+                        "id": "1422017",
+                        "name": "Dilane Bakwa",
+                        "cc": "fr"
+                    },
+                    "shirtnumber": "29",
+                    "pos": "Forward"
+                }
+            ]
+        }
+    }
+}

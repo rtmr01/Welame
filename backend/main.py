@@ -494,6 +494,121 @@ def get_epl_match_analysis(homeTeam: str, awayTeam: str, matchId: str | None = N
         return {"status": "error", "message": str(e)}
 
 
+@app.get("/api/player-stats")
+def get_player_stats(homeTeam: str, awayTeam: str, matchId: str | None = None):
+    """
+    Retorna predições de estatísticas individuais para os jogadores das equipes informadas.
+    Usa os modelos treinados com dados reais da Premier League.
+    """
+    import joblib
+    import pandas as pd
+
+    ml_dir = os.path.join(current_dir, "ml")
+
+    # 1. Verificar se os modelos existem
+    model_files = ["model_player_shots_on.pkl", "model_player_goals.pkl", "model_player_cards.pkl", "player_history_avgs.pkl"]
+    for f in model_files:
+        if not os.path.exists(os.path.join(ml_dir, f)):
+            return {"error": f"Modelo {f} não encontrado. Execute train_player_model.py primeiro.", "players": []}
+
+    # 2. Carregar modelos e histórico
+    try:
+        model_shots = joblib.load(os.path.join(ml_dir, "model_player_shots_on.pkl"))
+        model_goals = joblib.load(os.path.join(ml_dir, "model_player_goals.pkl"))
+        model_cards = joblib.load(os.path.join(ml_dir, "model_player_cards.pkl"))
+        player_history = joblib.load(os.path.join(ml_dir, "player_history_avgs.pkl"))
+        df_teams = pd.read_csv(os.path.join(ml_dir, "epl_team_power.csv"))
+        power_dict = dict(zip(df_teams['Squad'], df_teams['squad_power']))
+    except Exception as e:
+        return {"error": f"Erro ao carregar modelos: {str(e)}", "players": []}
+
+    # 3. Obter lineup real da API (se matchId disponível)
+    lineup_players: list[dict] = []
+    if matchId:
+        try:
+            client = BetsAPIClient()
+            lineup_res = client.get_event_lineup(matchId)
+            l_res = lineup_res.get("results", {})
+            for side in ["home", "away"]:
+                team_name = homeTeam if side == "home" else awayTeam
+                for group in ["startinglineup", "substitutes"]:
+                    for entry in l_res.get(side, {}).get(group, []):
+                        p = entry.get("player", {})
+                        if p.get("name"):
+                            lineup_players.append({"name": p["name"], "team": team_name, "side": side})
+        except Exception as e:
+            print(f"Erro ao buscar lineup: {e}")
+
+    # 4. Fallback: usar jogadores do histórico que sejam desses times
+    if not lineup_players:
+        df_players = None
+        players_csv = os.path.join(ml_dir, "players_dataset.csv")
+        if os.path.exists(players_csv):
+            df_players = pd.read_csv(players_csv)
+            df_home = df_players[df_players['team'].str.lower() == homeTeam.lower()]
+            df_away = df_players[df_players['team'].str.lower() == awayTeam.lower()]
+            for _, row in df_home.drop_duplicates('player_name').iterrows():
+                lineup_players.append({"name": row['player_name'], "team": homeTeam, "side": "home"})
+            for _, row in df_away.drop_duplicates('player_name').iterrows():
+                lineup_players.append({"name": row['player_name'], "team": awayTeam, "side": "away"})
+
+    if not lineup_players:
+        return {"error": "Nenhum jogador encontrado. Use um matchId válido ou garanta que os times estejam no dataset.", "players": []}
+
+    # 5. Gerar predições para cada jogador
+    results = []
+    for p in lineup_players:
+        p_name = p["name"]
+        p_side = p["side"]
+        p_team = p["team"]
+        opponent = awayTeam if p_side == "home" else homeTeam
+        opp_power = float(power_dict.get(opponent, 0.15)) * 100
+
+        # Buscar histórico do jogador
+        hist = player_history[player_history['player_name'] == p_name]
+        if hist.empty:
+            avg_shots_on, avg_shots_off, avg_goals = 0.0, 0.0, 0.0
+            games = 0
+        else:
+            row = hist.iloc[0]
+            avg_shots_on = float(row['avg_shots_on'])
+            avg_shots_off = float(row['avg_shots_off'])
+            avg_goals = float(row['avg_goals'])
+            games = int(hist.shape[0])
+
+        X = pd.DataFrame([[avg_shots_on, avg_shots_off, opp_power]],
+                         columns=['avg_shots_on', 'avg_shots_off', 'opponent_power'])
+
+        try:
+            pred_shots = float(model_shots.predict(X)[0])
+            pred_goals = float(model_goals.predict(X)[0])
+            pred_cards = float(model_cards.predict(X)[0])
+        except Exception:
+            pred_shots, pred_goals, pred_cards = 0.0, 0.0, 0.0
+
+        results.append({
+            "player_name": p_name,
+            "team": p_team,
+            "side": p_side,
+            "prediction": {
+                "shots_on": round(max(0, pred_shots), 3),
+                "goals": round(max(0, pred_goals), 3),
+                "cards": round(max(0, pred_cards), 3),
+            },
+            "history": {
+                "avg_shots_on": round(avg_shots_on, 3),
+                "avg_shots_off": round(avg_shots_off, 3),
+                "avg_goals": round(avg_goals, 3),
+                "games_in_dataset": games,
+            }
+        })
+
+    # Ordenar: jogadores com mais chutes preditos primeiro
+    results.sort(key=lambda x: x["prediction"]["shots_on"], reverse=True)
+
+    return {"players": results, "total": len(results)}
+
+
 if __name__ == "__main__":
     import uvicorn
     # Usa a porta 8001 como solicitado pelo usuário (definido no env VITE_API_URL)
