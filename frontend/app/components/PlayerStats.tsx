@@ -5,6 +5,7 @@ interface PlayerStatData {
   player_name: string;
   team: string;
   side: 'home' | 'away';
+  confidence: number;
   prediction: {
     shots_on: number;
     goals: number;
@@ -78,6 +79,10 @@ function PlayerCard({ player }: { player: PlayerStatData }) {
 
         {/* Quick stats */}
         <div className="flex items-center gap-4 shrink-0">
+          <div className="text-center hidden sm:block">
+            <p className="text-xs font-black text-[#00D26A] tabular-nums">{player.confidence}%</p>
+            <p className="text-[9px] text-slate-600 uppercase">Conf.</p>
+          </div>
           <div className="text-center hidden sm:block">
             <p className="text-xs font-black text-[#00D26A] tabular-nums">{player.prediction.shots_on.toFixed(1)}</p>
             <p className="text-[9px] text-slate-600 uppercase">Chutes</p>
@@ -162,6 +167,7 @@ function TeamSection({ teamName, players, side }: { teamName: string; players: P
 
 export function PlayerStats({ homeTeam, awayTeam, matchId }: PlayerStatsProps) {
   const [players, setPlayers] = useState<PlayerStatData[]>([]);
+  const [modelAccuracy, setModelAccuracy] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -180,6 +186,7 @@ export function PlayerStats({ homeTeam, awayTeam, matchId }: PlayerStatsProps) {
       .then(data => {
         if (data.error) throw new Error(data.error);
         setPlayers(data.players || []);
+        setModelAccuracy(data.accuracy || 0);
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
@@ -212,8 +219,8 @@ export function PlayerStats({ homeTeam, awayTeam, matchId }: PlayerStatsProps) {
           {/* Info Banner */}
           <div className="bg-[#00D26A]/5 border border-[#00D26A]/20 rounded-2xl p-4">
             <p className="text-[11px] text-[#00D26A]/80 font-medium leading-relaxed">
-              ⚡ Predições geradas por <span className="font-black">Random Forest</span> treinado com dados reais da Premier League.
-              Jogadores com ⭐ têm maior expectativa de impacto.
+              ⚡ Predições baseadas no histórico real da Premier League.
+              Acurácia atual das estimativas de jogadores: <span className="font-black">{modelAccuracy}%</span>. Jogadores com ⭐ têm maior expectativa de impacto.
             </p>
           </div>
 

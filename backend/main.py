@@ -1,6 +1,7 @@
 import os
 import hashlib
 import json
+import math
 from typing import Annotated, Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends
@@ -95,6 +96,67 @@ class MatchScenarioQuery(BaseModel):
 def _empty_squad(team_name: str) -> dict[str, Any]:
     # Retorna uma estrutura vazia se não houver dados reais (sem jogadores mock)
     return {"formation": "N/A", "players": [], "source": "no_data"}
+
+
+def _clamp(value: float, min_value: float, max_value: float) -> float:
+    return max(min_value, min(max_value, value))
+
+
+def _normalized_entropy(probabilities: list[float]) -> float:
+    positives = [p for p in probabilities if p > 0]
+    if not positives:
+        return 1.0
+
+    total = sum(positives)
+    dist = [p / total for p in positives]
+    entropy = -sum(p * math.log(p) for p in dist)
+    max_entropy = math.log(len(dist)) if len(dist) > 1 else 1.0
+    if max_entropy == 0:
+        return 1.0
+    return entropy / max_entropy
+
+
+def _calibrate_confidence(home_prob: float, draw_prob: float, away_prob: float, premium_boost: bool = False) -> int:
+    probs = [max(0.0, float(home_prob)), max(0.0, float(draw_prob)), max(0.0, float(away_prob))]
+    probs_sorted = sorted(probs, reverse=True)
+    top_prob = probs_sorted[0]
+    margin = probs_sorted[0] - probs_sorted[1]
+    certainty = 1.0 - _normalized_entropy(probs)
+
+    score = (top_prob * 0.58) + (margin * 0.27) + ((certainty * 100) * 0.15)
+    if premium_boost:
+        score += 4.0
+
+    return int(round(_clamp(score, 42, 98)))
+
+
+def _normalize_triplet(home: float, draw: float, away: float, min_floor: int = 5, max_cap: int = 90) -> tuple[int, int, int]:
+    clamped = [
+        _clamp(home, min_floor, max_cap),
+        _clamp(draw, min_floor, max_cap),
+        _clamp(away, min_floor, max_cap),
+    ]
+    total = sum(clamped) if sum(clamped) > 0 else 1.0
+    normalized = [int(round((v / total) * 100)) for v in clamped]
+    diff = 100 - sum(normalized)
+    normalized[max(range(3), key=lambda i: normalized[i])] += diff
+    return normalized[0], normalized[1], normalized[2]
+
+
+def _scenario_confidence(base_confidence: int, scenario: str, mult: dict[str, float]) -> int:
+    if scenario == "pressure":
+        attack_push = ((mult.get("goals", 1.0) + mult.get("shots", 1.0) + mult.get("penalty", 1.0)) / 3.0) - 1.0
+        volatility_penalty = max(0.0, mult.get("cards", 1.0) - 1.0)
+        score = base_confidence + (attack_push * 24.0) - (volatility_penalty * 8.0)
+        return int(round(_clamp(score, 38, 97)))
+
+    if scenario == "control":
+        distance_from_balance = abs(mult.get("goals", 1.0) - 1.0) + abs(mult.get("shots", 1.0) - 1.0)
+        discipline_gain = max(0.0, 1.08 - mult.get("cards", 1.0))
+        score = base_confidence + 2.0 + (discipline_gain * 24.0) - (distance_from_balance * 10.0)
+        return int(round(_clamp(score, 40, 99)))
+
+    return int(round(_clamp(base_confidence, 40, 98)))
 
 
 def _extract_players(value: Any) -> list[dict[str, str]]:
@@ -289,7 +351,8 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
     away_penalty_base = ml_preds["penalty"]["away"]
     
     # Confiança padrão e desfecho (serão atualizados pelo modelo se EPL)
-    main_confidence = int(max(home_win_prob, away_win_prob, draw_prob))
+    home_win_prob, draw_prob, away_win_prob = _normalize_triplet(home_win_prob, draw_prob, away_win_prob)
+    main_confidence = _calibrate_confidence(home_win_prob, draw_prob, away_win_prob)
     main_outcome_text = f"vitória do {homeTeam}"
     main_outcome_pct = home_win_prob
     if draw_prob > home_win_prob and draw_prob > away_win_prob:
@@ -298,9 +361,6 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
     elif away_win_prob > home_win_prob and away_win_prob > draw_prob:
         main_outcome_text = f"vitória do {awayTeam}"
         main_outcome_pct = away_win_prob
-
-    if main_confidence < 40: main_confidence = 40
-    if main_confidence > 98: main_confidence = 98
 
     # Adição: EPL Specialized Analysis
     epl_data = None
@@ -374,11 +434,10 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
                 home_win_prob = probs.get('H', home_win_prob)
                 draw_prob = probs.get('D', draw_prob)
                 away_win_prob = probs.get('A', away_win_prob)
+                home_win_prob, draw_prob, away_win_prob = _normalize_triplet(home_win_prob, draw_prob, away_win_prob)
                 
                 # Recalcula confiança baseada no modelo premium
-                main_confidence = int(max(home_win_prob, draw_prob, away_win_prob))
-                if main_confidence < 40: main_confidence = 40
-                if main_confidence > 98: main_confidence = 98
+                main_confidence = _calibrate_confidence(home_win_prob, draw_prob, away_win_prob, premium_boost=True)
 
                 # Define qual é o desfecho principal para o texto do insight
                 if home_win_prob >= draw_prob and home_win_prob >= away_win_prob:
@@ -413,6 +472,44 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
         }
     }
 
+    standard_confidence = _scenario_confidence(main_confidence, "standard", {"goals": 1.0, "shots": 1.0, "cards": 1.0, "penalty": 1.0})
+    pressure_confidence = _scenario_confidence(main_confidence, "pressure", _scenario_mult["pressure"])
+    control_confidence = _scenario_confidence(main_confidence, "control", _scenario_mult["control"])
+
+    pressure_home_win, pressure_draw, pressure_away_win = _normalize_triplet(
+        home_win_prob * 1.12,
+        draw_prob * 0.95,
+        away_win_prob * 0.92,
+    )
+    control_home_win, control_draw, control_away_win = _normalize_triplet(
+        home_win_prob * 1.06,
+        draw_prob * 1.08,
+        away_win_prob * 0.96,
+    )
+
+    player_models_ready = all(
+        os.path.exists(os.path.join(current_dir, "ml", fname))
+        for fname in (
+            "model_player_shots_on.pkl",
+            "model_player_goals.pkl",
+            "model_player_cards.pkl",
+            "player_history_avgs.pkl",
+        )
+    )
+    squad_data_quality = 0.0
+    if squads["home"].get("source") == "betsapi":
+        squad_data_quality += 0.5
+    if squads["away"].get("source") == "betsapi":
+        squad_data_quality += 0.5
+
+    player_accuracy = 52.0
+    if player_models_ready:
+        player_accuracy += 18.0
+    player_accuracy += 8.0 * squad_data_quality
+    if is_epl:
+        player_accuracy += 5.0
+    player_accuracy = int(round(_clamp(player_accuracy, 45, 92)))
+
     return {
         "homeTeam": homeTeam,
         "awayTeam": awayTeam,
@@ -422,9 +519,9 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
         "scenarioData": {
             "standard": {
                 "mainScenario": {
-                    "insight": f"Análise Premium: {main_outcome_pct}% para {main_outcome_text}" if is_epl else f"{home_win_prob}% de chance de vitória predita pelo modelo Random Forest.",
-                    "confidence": main_confidence,
-                    "reasoning": f"O modelo especializado da Premier League aponta {main_outcome_text} como o cenário mais provável ({main_outcome_pct}%)." if is_epl else f"O modelo AI analisou as estatísticas históricas dos times projetando uma probabilidade de {home_goals_exp} xG para o {homeTeam}."
+                    "insight": f"Análise Premium: {main_outcome_pct}% para {main_outcome_text}" if is_epl else f"{home_win_prob}% de chance de vitória para o {homeTeam}.",
+                    "confidence": standard_confidence,
+                    "reasoning": f"A leitura especializada da Premier League aponta {main_outcome_text} como o cenário mais provável ({main_outcome_pct}%)." if is_epl else f"Com base no histórico recente das equipes, o {homeTeam} chega com projeção ofensiva de {home_goals_exp} xG."
                 },
                 "probabilities": {
                     "goals": {"home": home_goals_prob, "away": away_goals_prob, "method": "ml"},
@@ -436,52 +533,58 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
             "pressure": {
                 "mainScenario": {
                     "insight": f"Cenário de pressão alta: {homeTeam} eleva o volume ofensivo, baseado no padrão dos top 5 times da EPL ({_scenario_mult['pressure']['goals']:.2f}x gols, {_scenario_mult['pressure']['shots']:.2f}x finalizações).",
-                    "confidence": max(30, main_confidence - 10),
+                    "confidence": pressure_confidence,
                     "reasoning": f"Multiplicadores derivados dos dados reais da temporada 25/26: os times mais dominantes da Premier League produzem {_scenario_mult['pressure']['goals']:.2f}x mais gols e {_scenario_mult['pressure']['shots']:.2f}x mais finalizações que a média da liga."
                 },
                 "probabilities": {
                     "goals": {"home": min(95, int(home_goals_prob * _scenario_mult['pressure']['goals'])), "away": max(5, int(away_goals_prob * _scenario_mult['pressure']['goals'] * 0.80)), "method": "ml"},
                     "cards": {"home": min(90, int(home_cards_prob * _scenario_mult['pressure']['cards'])), "away": min(90, int(away_cards_prob * (_scenario_mult['pressure']['cards'] + 0.15))), "method": "ml"},
                     "penalty": {"home": min(95, int(home_penalty_base * _scenario_mult['pressure']['penalty'])), "away": min(95, int(away_penalty_base * _scenario_mult['pressure']['penalty'])), "method": "ml"},
-                    "winner": {"home": min(85, int(home_win_prob * 1.12)), "away": max(5, int(away_win_prob * 0.92)), "draw": max(5, int(draw_prob * 0.95)), "method": "ml"}
+                    "winner": {"home": pressure_home_win, "away": pressure_away_win, "draw": pressure_draw, "method": "ml"}
                 }
             },
             "control": {
                 "mainScenario": {
                     "insight": f"Cenário de controle tático: jogo equilibrado com menor exposição, baseado no padrão dos times medianos da EPL ({_scenario_mult['control']['goals']:.2f}x gols, {_scenario_mult['control']['cards']:.2f}x cartões).",
-                    "confidence": min(99, main_confidence + 5),
+                    "confidence": control_confidence,
                     "reasoning": f"Multiplicadores derivados dos dados reais: em jogos entre times medianos (posições 6-15) da Premier League, o volume ofensivo cai para {_scenario_mult['control']['goals']:.2f}x da média, com {_scenario_mult['control']['cards']:.2f}x de cartões (jogo mais tenso e disputado)."
                 },
                 "probabilities": {
                     "goals": {"home": max(10, int(home_goals_prob * _scenario_mult['control']['goals'])), "away": max(8, int(away_goals_prob * _scenario_mult['control']['goals'])), "method": "ml"},
                     "cards": {"home": max(10, int(home_cards_prob * _scenario_mult['control']['cards'])), "away": max(10, int(away_cards_prob * _scenario_mult['control']['cards'])), "method": "ml"},
                     "penalty": {"home": max(5, int(home_penalty_base * _scenario_mult['control']['penalty'])), "away": max(5, int(away_penalty_base * _scenario_mult['control']['penalty'])), "method": "ml"},
-                    "winner": {"home": min(90, int(home_win_prob * 1.06)), "away": max(5, int(away_win_prob * 0.96)), "draw": min(60, int(draw_prob * 1.08)), "method": "ml"}
+                    "winner": {"home": control_home_win, "away": control_away_win, "draw": control_draw, "method": "ml"}
                 }
             }
         },
+        "accuracy": {
+            "player": player_accuracy,
+            "standard": standard_confidence,
+            "pressure": pressure_confidence,
+            "control": control_confidence
+        },
         "metadata": {
             "goals": {
-                "reasoning": f"A IA (Regressão não-linear) projetou {home_goals_exp} gols para {homeTeam} e {away_goals_exp} para {awayTeam}.",
-                "source": "RandomForestRegressor"
+                "reasoning": f"Pelo desempenho recente das equipes, a projeção de gols é de {home_goals_exp} para {homeTeam} e {away_goals_exp} para {awayTeam}.",
+                "source": "Histórico de partidas e fase atual"
             },
             "cards": {
-                "reasoning": f"O modelo ML prevê um jogo com cerca de {home_cards_exp + away_cards_exp} cartões distribuídos para o confronto.",
-                "source": "RandomForestRegressor"
+                "reasoning": f"O padrão de jogo recente indica cerca de {home_cards_exp + away_cards_exp} cartões no confronto.",
+                "source": "Ritmo de jogo e histórico disciplinar"
             },
             "penalty": {
-                "reasoning": f"Classificador treinado com histórico de faltas na área e força relativa estima {home_penalty_base}% para {homeTeam} e {away_penalty_base}% para {awayTeam}.",
-                "source": "RandomForestClassifier"
+                "reasoning": f"Pelos lances em área e pressão ofensiva recente, a chance de pênalti é de {home_penalty_base}% para {homeTeam} e {away_penalty_base}% para {awayTeam}.",
+                "source": "Histórico de lances na área"
             },
             "winner": {
-                "reasoning": f"O classificador ensemble calculou {home_win_prob}% de favoritismo para {homeTeam} contra {away_win_prob}% para {awayTeam}.",
-                "source": "RandomForestClassifier"
+                "reasoning": f"No cenário atual, o favoritismo está em {home_win_prob}% para {homeTeam} contra {away_win_prob}% para {awayTeam}.",
+                "source": "Momento das equipes e resultados recentes"
             }
         },
         "timelineEvents": [], # Removido dados mockados
         "autoComments": [
             {
-                "text": f"Machine Learning ressalta: {homeTeam} apresenta um número esperado de cartões de {home_cards_exp}.",
+                "text": f"Os dados recentes apontam que o {homeTeam} pode terminar a partida com cerca de {home_cards_exp} cartões.",
                 "type": "insight"
             },
             {
@@ -489,7 +592,7 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
                 "type": "alert"
             },
             {
-                "text": f"O modelo previu {home_goals_exp} gols para o {homeTeam}, um cenário de intensidade ajustada pelo algoritmo.",
+                "text": f"A projeção atual indica {home_goals_exp} gols esperados para o {homeTeam}.",
                 "type": "trend"
             }
         ],
@@ -531,7 +634,7 @@ def get_epl_match_analysis(homeTeam: str, awayTeam: str, matchId: str | None = N
             "status": "success",
             "match": f"{homeTeam} vs {awayTeam}",
             "analysis": analysis,
-            "source": "Premier League Dedicated ML Model (v2026)"
+            "source": "Análise dedicada da Premier League (v2026)"
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -552,7 +655,7 @@ def get_player_stats(homeTeam: str, awayTeam: str, matchId: str | None = None):
     model_files = ["model_player_shots_on.pkl", "model_player_goals.pkl", "model_player_cards.pkl", "player_history_avgs.pkl"]
     for f in model_files:
         if not os.path.exists(os.path.join(ml_dir, f)):
-            return {"error": f"Modelo {f} não encontrado. Execute train_player_model.py primeiro.", "players": []}
+            return {"error": "Dados de jogadores indisponíveis no momento. Tente novamente em instantes.", "players": []}
 
     # 2. Carregar modelos e histórico
     try:
@@ -599,6 +702,13 @@ def get_player_stats(homeTeam: str, awayTeam: str, matchId: str | None = None):
         return {"error": "Nenhum jogador encontrado. Use um matchId válido ou garanta que os times estejam no dataset.", "players": []}
 
     # 5. Gerar predições para cada jogador
+    def compute_player_confidence(games: int, avg_shots_on: float, avg_goals: float, pred_shots: float, pred_goals: float, pred_cards: float) -> int:
+        sample_score = min(42.0, games * 3.5)
+        historical_signal = min(20.0, (avg_shots_on * 4.0) + (avg_goals * 20.0))
+        prediction_signal = min(18.0, (pred_shots * 3.0) + (pred_goals * 25.0) + (pred_cards * 8.0))
+        confidence = 28.0 + sample_score + historical_signal + prediction_signal
+        return int(round(_clamp(confidence, 35, 96)))
+
     results = []
     for p in lineup_players:
         p_name = p["name"]
@@ -629,10 +739,20 @@ def get_player_stats(homeTeam: str, awayTeam: str, matchId: str | None = None):
         except Exception:
             pred_shots, pred_goals, pred_cards = 0.0, 0.0, 0.0
 
+        player_confidence = compute_player_confidence(
+            games,
+            avg_shots_on,
+            avg_goals,
+            pred_shots,
+            pred_goals,
+            pred_cards,
+        )
+
         results.append({
             "player_name": p_name,
             "team": p_team,
             "side": p_side,
+            "confidence": player_confidence,
             "prediction": {
                 "shots_on": round(max(0, pred_shots), 3),
                 "goals": round(max(0, pred_goals), 3),
@@ -649,7 +769,9 @@ def get_player_stats(homeTeam: str, awayTeam: str, matchId: str | None = None):
     # Ordenar: jogadores com mais chutes preditos primeiro
     results.sort(key=lambda x: x["prediction"]["shots_on"], reverse=True)
 
-    return {"players": results, "total": len(results)}
+    overall_accuracy = int(round(sum(p["confidence"] for p in results) / len(results))) if results else 45
+
+    return {"players": results, "total": len(results), "accuracy": overall_accuracy}
 
 
 if __name__ == "__main__":

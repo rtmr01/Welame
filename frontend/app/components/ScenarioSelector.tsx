@@ -12,45 +12,45 @@ export function ScenarioSelector({ activeScenario, onScenarioChange }: ScenarioS
     {
       id: 'standard' as ScenarioType,
       label: 'Cenário Padrão',
-      description: 'Previsão base do modelo',
+      description: 'Visão geral da partida',
       icon: Layers,
-      color: 'blue'
+      color: 'base'
     },
     {
       id: 'pressure' as ScenarioType,
       label: 'Sob Pressão',
       description: 'Time perdendo cedo',
       icon: Zap,
-      color: 'amber'
+      color: 'highlight'
     },
     {
       id: 'control' as ScenarioType,
       label: 'Controle de Jogo',
       description: 'Alta posse de bola',
       icon: Shield,
-      color: 'emerald'
+      color: 'teal'
     }
   ];
 
   const getColorClasses = (color: string, isActive: boolean) => {
     const colors = {
-      blue: {
-        bg: isActive ? 'bg-blue-500' : 'bg-white hover:bg-blue-50',
-        text: isActive ? 'text-white' : 'text-blue-600',
-        border: isActive ? 'border-blue-500' : 'border-blue-200 hover:border-blue-300',
-        iconBg: isActive ? 'bg-blue-400' : 'bg-blue-100'
+      base: {
+        bg: isActive ? 'bg-[#1C1F5A]' : 'bg-white hover:bg-[#1C1F5A]/5',
+        text: isActive ? 'text-white' : 'text-[#1C1F5A]',
+        border: isActive ? 'border-[#1C1F5A]' : 'border-[#1C1F5A]/20 hover:border-[#1C1F5A]/35',
+        iconBg: isActive ? 'bg-[#3241a4]' : 'bg-[#1C1F5A]/10'
       },
-      amber: {
-        bg: isActive ? 'bg-amber-500' : 'bg-white hover:bg-amber-50',
-        text: isActive ? 'text-white' : 'text-amber-600',
-        border: isActive ? 'border-amber-500' : 'border-amber-200 hover:border-amber-300',
-        iconBg: isActive ? 'bg-amber-400' : 'bg-amber-100'
+      highlight: {
+        bg: isActive ? 'bg-[#00D26A]' : 'bg-white hover:bg-[#00D26A]/8',
+        text: isActive ? 'text-[#0a2f1f]' : 'text-[#0f8a4a]',
+        border: isActive ? 'border-[#00D26A]' : 'border-[#00D26A]/35 hover:border-[#00D26A]/55',
+        iconBg: isActive ? 'bg-[#00b95d]' : 'bg-[#00D26A]/15'
       },
-      emerald: {
-        bg: isActive ? 'bg-emerald-500' : 'bg-white hover:bg-emerald-50',
-        text: isActive ? 'text-white' : 'text-emerald-600',
-        border: isActive ? 'border-emerald-500' : 'border-emerald-200 hover:border-emerald-300',
-        iconBg: isActive ? 'bg-emerald-400' : 'bg-emerald-100'
+      teal: {
+        bg: isActive ? 'bg-[#1a7e90]' : 'bg-white hover:bg-[#1a7e90]/8',
+        text: isActive ? 'text-white' : 'text-[#1a7e90]',
+        border: isActive ? 'border-[#1a7e90]' : 'border-[#1a7e90]/30 hover:border-[#1a7e90]/45',
+        iconBg: isActive ? 'bg-[#116474]' : 'bg-[#1a7e90]/15'
       }
     };
     return colors[color as keyof typeof colors];
@@ -59,8 +59,8 @@ export function ScenarioSelector({ activeScenario, onScenarioChange }: ScenarioS
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 px-1">
-        <Layers className="w-4 h-4 text-indigo-600" />
-        <h3 className="text-slate-900">Explorar Cenários</h3>
+        <Layers className="w-4 h-4 text-[#1C1F5A]" />
+        <h3 className="text-[#1C1F5A]">Explorar Cenários</h3>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -100,8 +100,8 @@ export function ScenarioSelector({ activeScenario, onScenarioChange }: ScenarioS
         })}
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <p className="text-xs text-blue-800 leading-relaxed">
+      <div className="bg-white/80 border border-[#1C1F5A]/20 rounded-lg p-3">
+        <p className="text-xs text-[#1C1F5A] leading-relaxed">
           💡 Alterne entre cenários para ver como as probabilidades mudam em diferentes situações de jogo
         </p>
       </div>

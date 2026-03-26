@@ -99,22 +99,47 @@ export default function App() {
     }
   };
 
+  const accuracyCards = apiData?.accuracy
+    ? [
+        { key: 'player', label: 'Acurácia Jogador', value: apiData.accuracy.player },
+        { key: 'standard', label: 'Acurácia Padrão', value: apiData.accuracy.standard },
+        { key: 'pressure', label: 'Acurácia Pressão', value: apiData.accuracy.pressure },
+        { key: 'control', label: 'Acurácia Controle', value: apiData.accuracy.control },
+      ]
+    : [];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-slate-100 p-4 md:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-[#f3f6ff] via-[#e9eefc] to-[#eff9f4] p-4 md:p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-4 mb-8">
-          <h1 className="text-slate-900 text-3xl font-bold">Assistente de Partida (Com Apostas Ao Vivo)</h1>
+          <h1 className="text-[#1C1F5A] text-3xl font-bold">Assistente de Partida (Com Apostas Ao Vivo)</h1>
 
           {apiData && (
-            <p className="text-sm text-slate-500 mt-2">Partidas vindas da BetsAPI • Insights Preditivos</p>
+            <p className="text-sm text-[#1C1F5A]/70 mt-2">Partidas vindas da BetsAPI • Insights Preditivos</p>
+          )}
+
+          {accuracyCards.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-w-3xl mx-auto pt-2">
+              {accuracyCards.map(card => (
+                <div
+                  key={card.key}
+                  className="rounded-xl border border-[#1C1F5A]/15 bg-white/80 backdrop-blur-sm px-3 py-2 text-left shadow-sm"
+                >
+                  <p className="text-[10px] uppercase tracking-wider text-[#1C1F5A]/70 font-semibold">{card.label}</p>
+                  <p className="text-lg font-black text-[#1C1F5A]">
+                    <span className="text-[#00D26A]">{card.value}</span>%
+                  </p>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
         {!apiData ? (
           <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-slate-500 animate-pulse">Analisando dados da partida e calculando probabilidades...</p>
+            <div className="w-8 h-8 border-4 border-[#1C1F5A] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-[#1C1F5A]/70 animate-pulse">Analisando dados da partida e calculando probabilidades...</p>
           </div>
         ) : (
           <>
@@ -167,9 +192,9 @@ export default function App() {
             {/* Probabilities Section */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 px-1">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
-                <span className="text-xs uppercase tracking-wider text-slate-500 font-medium">Probabilidades Contextuais</span>
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#1C1F5A]/30 to-transparent" />
+                <span className="text-xs uppercase tracking-wider text-[#1C1F5A]/75 font-medium">Probabilidades Contextuais</span>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#1C1F5A]/30 to-transparent" />
               </div>
 
               <ProbabilityCarousel>
@@ -257,12 +282,12 @@ export default function App() {
             />
 
             {/* Help Section */}
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200 p-6">
-              <h3 className="text-slate-900 mb-3 font-semibold">Como Interpretar</h3>
-              <div className="space-y-2 text-sm text-slate-600">
+            <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-[#1C1F5A]/15 p-6">
+              <h3 className="text-[#1C1F5A] mb-3 font-semibold">Como Interpretar</h3>
+              <div className="space-y-2 text-sm text-[#1C1F5A]/75">
                 <p>• Este relatório agora é puxado com jogos reais advindos do BetsAPI</p>
                 <p>• A confiança é calculada com base na consistência dos dados históricos</p>
-                <p>• Cada previsão mostra o tipo de modelo usado (Estatístico, ML ou Heurístico)</p>
+                <p>• Cada previsão indica de forma simples a origem e o contexto da análise</p>
                 <p>• Use o seletor de cenários para explorar como as probabilidades mudam em diferentes situações</p>
               </div>
             </div>

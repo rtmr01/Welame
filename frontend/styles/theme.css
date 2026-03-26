@@ -186,11 +186,11 @@
 
   .probability-carousel .slick-dots li button:before {
     font-size: 8px;
-    color: #94a3b8;
+    color: #8a95ce;
   }
 
   .probability-carousel .slick-dots li.slick-active button:before {
-    color: #3b82f6;
+    color: #00D26A;
   }
 
   .probability-carousel .slick-prev,
@@ -210,7 +210,7 @@
 
   .probability-carousel .slick-prev:before,
   .probability-carousel .slick-next:before {
-    color: #64748b;
+    color: #1C1F5A;
     font-size: 24px;
   }
 }
