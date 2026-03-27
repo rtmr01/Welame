@@ -9,13 +9,55 @@ import { MatchHistory } from './components/MatchHistory';
 import { ScenarioSelector, ScenarioType } from './components/ScenarioSelector';
 import { SquadDetails } from './components/SquadDetails';
 import { PlayerStats } from './components/PlayerStats';
-import { Goal, AlertTriangle, Flag, Trophy } from 'lucide-react';
+import { Goal, AlertTriangle, Flag, Trophy, Timer, Swords, Zap } from 'lucide-react';
 
 const SPORT_IDS: Record<string, number> = {
   futebol: 1,
+  football: 1,
   basquete: 18,
+  basketball: 18,
+  nba: 18,
   esports: 151,
   tenis: 13,
+  tennis: 13,
+  'tênis': 13,
+};
+
+const SPORT_KEYS: Record<string, 'futebol' | 'basquete' | 'esports' | 'tenis'> = {
+  futebol: 'futebol',
+  football: 'futebol',
+  soccer: 'futebol',
+  basquete: 'basquete',
+  basketball: 'basquete',
+  nba: 'basquete',
+  esports: 'esports',
+  'e-sports': 'esports',
+  tenis: 'tenis',
+  tennis: 'tenis',
+  'tênis': 'tenis',
+};
+
+const SPORT_METRICS = {
+  futebol: [
+    { key: 'goals', label: 'Chance de Gol', icon: Goal, color: 'goal' as const },
+    { key: 'cards', label: 'Risco de Cartão Amarelo', icon: AlertTriangle, color: 'card' as const },
+    { key: 'penalty', label: 'Chance de Pênalti', icon: Flag, color: 'penalty' as const },
+  ],
+  basquete: [
+    { key: 'goals', label: 'Projeção de Pontos', icon: Goal, color: 'goal' as const },
+    { key: 'cards', label: 'Intensidade de Faltas', icon: AlertTriangle, color: 'card' as const },
+    { key: 'penalty', label: 'Lance Livre Decisivo', icon: Flag, color: 'penalty' as const },
+  ],
+  tenis: [
+    { key: 'goals', label: 'Projeção de Games', icon: Timer, color: 'goal' as const },
+    { key: 'cards', label: 'Pressão dos Rallies', icon: Swords, color: 'card' as const },
+    { key: 'penalty', label: 'Quebra Decisiva', icon: Zap, color: 'penalty' as const },
+  ],
+  esports: [
+    { key: 'goals', label: 'Projeção de Rounds', icon: Timer, color: 'goal' as const },
+    { key: 'cards', label: 'Intensidade da Partida', icon: Swords, color: 'card' as const },
+    { key: 'penalty', label: 'Chance de Virada', icon: Zap, color: 'penalty' as const },
+  ],
 };
 
 interface MatchItem {
@@ -26,6 +68,8 @@ interface MatchItem {
 
 export default function App() {
   const { sport, id } = useParams<{ sport: string; id: string }>();
+  const sportInput = (sport || 'futebol').toLowerCase();
+  const normalizedSport = SPORT_KEYS[sportInput] || 'futebol';
   const location = useLocation();
   const routeState = location.state as { match?: MatchItem } | null;
 
@@ -39,11 +83,11 @@ export default function App() {
   const [homeTeamInput, setHomeTeamInput] = useState('');
   const [awayTeamInput, setAwayTeamInput] = useState('');
   const [triggerFetch, setTriggerFetch] = useState(0);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   // Inicialmente busca as partidas da API BetsAPI para o esporte da rota.
   useEffect(() => {
-    const sportKey = (sport || 'futebol').toLowerCase();
-    const sportId = SPORT_IDS[sportKey] || 1;
+    const sportId = SPORT_IDS[sportInput] || SPORT_IDS[normalizedSport] || 1;
     fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/upcoming-matches?sport_id=${sportId}`)
       .then(res => res.json())
       .then(data => {
@@ -65,16 +109,19 @@ export default function App() {
       })
       .catch(err => {
         console.error("Erro puxando proximas partidas:", err);
+        setApiError('Nao foi possivel carregar as partidas deste esporte no momento.');
         setIsLoadingMatches(false);
       });
-  }, [sport, id, routeState]);
+  }, [sportInput, normalizedSport, id, routeState]);
 
   // Busca os insights da partida específica selecionada.
   useEffect(() => {
     if (!homeTeamInput || !awayTeamInput) return;
 
+    setApiError(null);
     setApiData(null);
     const params = new URLSearchParams({
+      sport: normalizedSport,
       homeTeam: homeTeamInput,
       awayTeam: awayTeamInput,
     });
@@ -83,10 +130,19 @@ export default function App() {
     }
 
     fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/match-scenario?${params.toString()}`)
-      .then(res => res.json())
-      .then(data => setApiData(data))
-      .catch(err => console.error("Erro ao puxar dados da API:", err));
-  }, [triggerFetch, homeTeamInput, awayTeamInput, selectedMatchId]);
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok || data?.error || !data?.scenarioData) {
+          const msg = data?.detail?.[0]?.msg || data?.error || 'Nao foi possivel carregar esta analise.';
+          throw new Error(msg);
+        }
+        setApiData(data);
+      })
+      .catch(err => {
+        console.error("Erro ao puxar dados da API:", err);
+        setApiError(err?.message || 'Nao foi possivel carregar esta analise.');
+      });
+  }, [triggerFetch, homeTeamInput, awayTeamInput, selectedMatchId, normalizedSport]);
 
   const handleMatchSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const matchId = e.target.value;
@@ -107,6 +163,7 @@ export default function App() {
         { key: 'control', label: 'Acurácia Controle', value: apiData.accuracy.control },
       ]
     : [];
+  const metricsForSport = SPORT_METRICS[normalizedSport] || SPORT_METRICS.futebol;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f3f6ff] via-[#e9eefc] to-[#eff9f4] p-4 md:p-6">
@@ -139,7 +196,7 @@ export default function App() {
         {!apiData ? (
           <div className="flex flex-col items-center justify-center py-20 space-y-4">
             <div className="w-8 h-8 border-4 border-[#1C1F5A] border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-[#1C1F5A]/70 animate-pulse">Analisando dados da partida e calculando probabilidades...</p>
+            <p className="text-[#1C1F5A]/70 animate-pulse">{apiError || 'Analisando dados da partida e calculando probabilidades...'}</p>
           </div>
         ) : (
           <>
@@ -212,44 +269,27 @@ export default function App() {
                   methodType={apiData.scenarioData[activeScenario].probabilities.winner.method}
                 />
 
-                <ProbabilityBar
-                  icon={Goal}
-                  label="Chance de Gol"
-                  homeTeam={apiData.homeTeam}
-                  awayTeam={apiData.awayTeam}
-                  homeProbability={apiData.scenarioData[activeScenario].probabilities.goals.home}
-                  awayProbability={apiData.scenarioData[activeScenario].probabilities.goals.away}
-                  color="goal"
-                  reasoning={apiData.metadata.goals.reasoning}
-                  source={apiData.metadata.goals.source}
-                  methodType={apiData.scenarioData[activeScenario].probabilities.goals.method}
-                />
+                {metricsForSport.map(metric => {
+                  const prob = apiData.scenarioData[activeScenario].probabilities[metric.key];
+                  const meta = apiData.metadata[metric.key];
+                  if (!prob || !meta) return null;
 
-                <ProbabilityBar
-                  icon={AlertTriangle}
-                  label="Risco de Cartão Amarelo"
-                  homeTeam={apiData.homeTeam}
-                  awayTeam={apiData.awayTeam}
-                  homeProbability={apiData.scenarioData[activeScenario].probabilities.cards.home}
-                  awayProbability={apiData.scenarioData[activeScenario].probabilities.cards.away}
-                  color="card"
-                  reasoning={apiData.metadata.cards.reasoning}
-                  source={apiData.metadata.cards.source}
-                  methodType={apiData.scenarioData[activeScenario].probabilities.cards.method}
-                />
-
-                <ProbabilityBar
-                  icon={Flag}
-                  label="Chance de Pênalti"
-                  homeTeam={apiData.homeTeam}
-                  awayTeam={apiData.awayTeam}
-                  homeProbability={apiData.scenarioData[activeScenario].probabilities.penalty.home}
-                  awayProbability={apiData.scenarioData[activeScenario].probabilities.penalty.away}
-                  color="penalty"
-                  reasoning={apiData.metadata.penalty.reasoning}
-                  source={apiData.metadata.penalty.source}
-                  methodType={apiData.scenarioData[activeScenario].probabilities.penalty.method}
-                />
+                  return (
+                    <ProbabilityBar
+                      key={metric.key}
+                      icon={metric.icon}
+                      label={metric.label}
+                      homeTeam={apiData.homeTeam}
+                      awayTeam={apiData.awayTeam}
+                      homeProbability={prob.home}
+                      awayProbability={prob.away}
+                      color={metric.color}
+                      reasoning={meta.reasoning}
+                      source={meta.source}
+                      methodType={prob.method}
+                    />
+                  );
+                })}
               </ProbabilityCarousel>
             </div>
 
