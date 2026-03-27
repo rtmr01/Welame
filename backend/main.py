@@ -63,6 +63,7 @@ class UpcomingMatchesQuery(BaseModel):
 class MatchScenarioQuery(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
+    sport: str = Field(default="futebol", min_length=2, max_length=20)
     homeTeam: str = Field(default="Manchester City", min_length=2, max_length=80)
     awayTeam: str = Field(default="Liverpool", min_length=2, max_length=80)
     matchId: str | None = Field(default=None, min_length=1, max_length=32)
@@ -70,7 +71,7 @@ class MatchScenarioQuery(BaseModel):
     @field_validator("homeTeam", "awayTeam")
     @classmethod
     def validate_team_name(cls, value: str) -> str:
-        if not all(ch.isalnum() or ch in " -_.'" for ch in value):
+        if not all(ch.isalnum() or ch in " -_.'/&()" for ch in value):
             raise ValueError("Nome de time contém caracteres inválidos")
         return value
 
@@ -216,6 +217,98 @@ def _build_squads(match_id: str | None, home_team: str, away_team: str) -> dict[
             "home": _empty_squad(home_team),
             "away": _empty_squad(away_team),
         }
+
+
+def _normalize_sport_key(sport: str) -> str:
+    aliases = {
+        "futebol": "football",
+        "football": "football",
+        "soccer": "football",
+        "basquete": "basketball",
+        "basketball": "basketball",
+        "nba": "basketball",
+        "esports": "esports",
+        "e-sports": "esports",
+        "tenis": "tennis",
+        "tênis": "tennis",
+        "tennis": "tennis",
+    }
+    return aliases.get((sport or "").strip().lower(), "football")
+
+
+def _sport_market_copy(
+    sport_key: str,
+    home_team: str,
+    away_team: str,
+    home_val: float,
+    away_val: float,
+    home_cards_val: float,
+    away_cards_val: float,
+    hp: int,
+    ap: int,
+) -> dict[str, dict[str, str]]:
+    if sport_key == "basketball":
+        return {
+            "goals": {
+                "reasoning": f"Pelo ritmo recente das equipes, a projeção de pontos fica em {home_val} para {home_team} e {away_val} para {away_team}.",
+                "source": "Ritmo ofensivo e histórico de partidas"
+            },
+            "cards": {
+                "reasoning": f"O confronto indica intensidade de contato elevada, com tendência de faltas para os dois lados.",
+                "source": "Padrão físico e volume de posse"
+            },
+            "penalty": {
+                "reasoning": f"Há chance de lance livre decisivo no fim: {hp}% para {home_team} e {ap}% para {away_team}.",
+                "source": "Situações de clutch e pressão final"
+            },
+        }
+
+    if sport_key == "tennis":
+        return {
+            "goals": {
+                "reasoning": f"A leitura da partida aponta vantagem de ritmo em games para {home_team} ({home_val}) contra {away_team} ({away_val}).",
+                "source": "Histórico recente e consistência em serviço"
+            },
+            "cards": {
+                "reasoning": "O nível de pressão dos rallies sugere uma partida longa e exigente nos momentos-chave.",
+                "source": "Padrão de trocas e estabilidade em pontos importantes"
+            },
+            "penalty": {
+                "reasoning": f"Chance de quebra decisiva no andamento do jogo: {hp}% para {home_team} e {ap}% para {away_team}.",
+                "source": "Desempenho em break points"
+            },
+        }
+
+    if sport_key == "esports":
+        return {
+            "goals": {
+                "reasoning": f"A projeção de rounds favorece {home_team} ({home_val}) sobre {away_team} ({away_val}) no ritmo atual.",
+                "source": "Forma recente e conversão de rounds"
+            },
+            "cards": {
+                "reasoning": "O confronto tem tendência de alta intensidade, com troca constante de vantagem tática.",
+                "source": "Pressão de mapa e controle de objetivos"
+            },
+            "penalty": {
+                "reasoning": f"Existe probabilidade de virada decisiva: {hp}% para {home_team} e {ap}% para {away_team}.",
+                "source": "Histórico de recuperação e rounds críticos"
+            },
+        }
+
+    return {
+        "goals": {
+            "reasoning": f"Pelo desempenho recente das equipes, a projeção de gols é de {home_val} para {home_team} e {away_val} para {away_team}.",
+            "source": "Histórico de partidas e fase atual"
+        },
+        "cards": {
+            "reasoning": f"O padrão de jogo recente indica cerca de {home_cards_val + away_cards_val} cartões no confronto.",
+            "source": "Ritmo de jogo e histórico disciplinar"
+        },
+        "penalty": {
+            "reasoning": f"Pelos lances em área e pressão ofensiva recente, a chance de pênalti é de {hp}% para {home_team} e {ap}% para {away_team}.",
+            "source": "Histórico de lances na área"
+        },
+    }
     try:
         view = BetsAPIClient().get_event_view(match_id)
         return _extract_squads_from_event_view(view, home_team, away_team)
@@ -321,12 +414,14 @@ def get_upcoming_matches(
 
 @app.get("/api/match-scenario")
 def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
+    sport = params.sport.lower()
+    sport_key = _normalize_sport_key(sport)
     homeTeam = params.homeTeam
     awayTeam = params.awayTeam
     matchId = params.matchId
 
     # ML Prediction Call
-    ml_preds = predict_match(homeTeam, awayTeam)
+    ml_preds = predict_match(homeTeam, awayTeam, sport)
     
     # Extract prediction numbers
     home_win_prob = ml_preds["winner"]["home"]
@@ -388,7 +483,7 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
 
     # Refinamento is_epl (Premier League Detection Real)
     epl_keywords = ["premier league", "イングランド・プレミアリーグ", "잉글랜드 프리미어리그"]
-    if league_id == 1 or any(k in league_name.lower() for k in epl_keywords):
+    if sport in ("futebol", "football", "soccer") and (league_id == 1 or any(k in league_name.lower() for k in epl_keywords)):
         is_epl = True
 
     # Squads (Reaproveitando view se disponível)
@@ -472,9 +567,16 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
         }
     }
 
+    scenario_mult = _scenario_mult
+    if sport_key != "football":
+        scenario_mult = {
+            "pressure": {"goals": 1.12, "shots": 1.08, "cards": 1.05, "penalty": 1.10},
+            "control": {"goals": 0.95, "shots": 0.96, "cards": 0.98, "penalty": 0.92},
+        }
+
     standard_confidence = _scenario_confidence(main_confidence, "standard", {"goals": 1.0, "shots": 1.0, "cards": 1.0, "penalty": 1.0})
-    pressure_confidence = _scenario_confidence(main_confidence, "pressure", _scenario_mult["pressure"])
-    control_confidence = _scenario_confidence(main_confidence, "control", _scenario_mult["control"])
+    pressure_confidence = _scenario_confidence(main_confidence, "pressure", scenario_mult["pressure"])
+    control_confidence = _scenario_confidence(main_confidence, "control", scenario_mult["control"])
 
     pressure_home_win, pressure_draw, pressure_away_win = _normalize_triplet(
         home_win_prob * 1.12,
@@ -486,6 +588,29 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
         draw_prob * 1.08,
         away_win_prob * 0.96,
     )
+
+    market_copy = _sport_market_copy(
+        sport_key,
+        homeTeam,
+        awayTeam,
+        home_goals_exp,
+        away_goals_exp,
+        home_cards_exp,
+        away_cards_exp,
+        home_penalty_base,
+        away_penalty_base,
+    )
+
+    if sport_key == "football":
+        pressure_insight = f"Cenário de pressão alta: {homeTeam} eleva o volume ofensivo, baseado no padrão dos top 5 times da EPL ({scenario_mult['pressure']['goals']:.2f}x gols, {scenario_mult['pressure']['shots']:.2f}x finalizações)."
+        pressure_reason = f"Multiplicadores derivados dos dados reais da temporada 25/26: os times mais dominantes da Premier League produzem {scenario_mult['pressure']['goals']:.2f}x mais gols e {scenario_mult['pressure']['shots']:.2f}x mais finalizações que a média da liga."
+        control_insight = f"Cenário de controle tático: jogo equilibrado com menor exposição, baseado no padrão dos times medianos da EPL ({scenario_mult['control']['goals']:.2f}x gols, {scenario_mult['control']['cards']:.2f}x cartões)."
+        control_reason = f"Multiplicadores derivados dos dados reais: em jogos entre times medianos (posições 6-15) da Premier League, o volume ofensivo cai para {scenario_mult['control']['goals']:.2f}x da média, com {scenario_mult['control']['cards']:.2f}x de cartões (jogo mais tenso e disputado)."
+    else:
+        pressure_insight = f"Cenário de pressão: {homeTeam} e {awayTeam} aumentam o ritmo e os momentos decisivos da partida."
+        pressure_reason = "O cenário de pressão considera aceleração de ritmo e maior disputa em jogadas críticas com base no histórico recente."
+        control_insight = f"Cenário de controle: ritmo mais estável e menor oscilação entre {homeTeam} e {awayTeam}."
+        control_reason = "O cenário de controle prioriza estabilidade tática e menor exposição, refletindo partidas mais equilibradas."
 
     player_models_ready = all(
         os.path.exists(os.path.join(current_dir, "ml", fname))
@@ -521,7 +646,7 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
                 "mainScenario": {
                     "insight": f"Análise Premium: {main_outcome_pct}% para {main_outcome_text}" if is_epl else f"{home_win_prob}% de chance de vitória para o {homeTeam}.",
                     "confidence": standard_confidence,
-                    "reasoning": f"A leitura especializada da Premier League aponta {main_outcome_text} como o cenário mais provável ({main_outcome_pct}%)." if is_epl else f"Com base no histórico recente das equipes, o {homeTeam} chega com projeção ofensiva de {home_goals_exp} xG."
+                    "reasoning": f"A leitura especializada da Premier League aponta {main_outcome_text} como o cenário mais provável ({main_outcome_pct}%)." if is_epl else f"Com base no histórico recente das equipes, {main_outcome_text} aparece como cenário mais provável."
                 },
                 "probabilities": {
                     "goals": {"home": home_goals_prob, "away": away_goals_prob, "method": "ml"},
@@ -532,27 +657,27 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
             },
             "pressure": {
                 "mainScenario": {
-                    "insight": f"Cenário de pressão alta: {homeTeam} eleva o volume ofensivo, baseado no padrão dos top 5 times da EPL ({_scenario_mult['pressure']['goals']:.2f}x gols, {_scenario_mult['pressure']['shots']:.2f}x finalizações).",
+                    "insight": pressure_insight,
                     "confidence": pressure_confidence,
-                    "reasoning": f"Multiplicadores derivados dos dados reais da temporada 25/26: os times mais dominantes da Premier League produzem {_scenario_mult['pressure']['goals']:.2f}x mais gols e {_scenario_mult['pressure']['shots']:.2f}x mais finalizações que a média da liga."
+                    "reasoning": pressure_reason
                 },
                 "probabilities": {
-                    "goals": {"home": min(95, int(home_goals_prob * _scenario_mult['pressure']['goals'])), "away": max(5, int(away_goals_prob * _scenario_mult['pressure']['goals'] * 0.80)), "method": "ml"},
-                    "cards": {"home": min(90, int(home_cards_prob * _scenario_mult['pressure']['cards'])), "away": min(90, int(away_cards_prob * (_scenario_mult['pressure']['cards'] + 0.15))), "method": "ml"},
-                    "penalty": {"home": min(95, int(home_penalty_base * _scenario_mult['pressure']['penalty'])), "away": min(95, int(away_penalty_base * _scenario_mult['pressure']['penalty'])), "method": "ml"},
+                    "goals": {"home": min(95, int(home_goals_prob * scenario_mult['pressure']['goals'])), "away": max(5, int(away_goals_prob * scenario_mult['pressure']['goals'] * 0.80)), "method": "ml"},
+                    "cards": {"home": min(90, int(home_cards_prob * scenario_mult['pressure']['cards'])), "away": min(90, int(away_cards_prob * (scenario_mult['pressure']['cards'] + 0.15))), "method": "ml"},
+                    "penalty": {"home": min(95, int(home_penalty_base * scenario_mult['pressure']['penalty'])), "away": min(95, int(away_penalty_base * scenario_mult['pressure']['penalty'])), "method": "ml"},
                     "winner": {"home": pressure_home_win, "away": pressure_away_win, "draw": pressure_draw, "method": "ml"}
                 }
             },
             "control": {
                 "mainScenario": {
-                    "insight": f"Cenário de controle tático: jogo equilibrado com menor exposição, baseado no padrão dos times medianos da EPL ({_scenario_mult['control']['goals']:.2f}x gols, {_scenario_mult['control']['cards']:.2f}x cartões).",
+                    "insight": control_insight,
                     "confidence": control_confidence,
-                    "reasoning": f"Multiplicadores derivados dos dados reais: em jogos entre times medianos (posições 6-15) da Premier League, o volume ofensivo cai para {_scenario_mult['control']['goals']:.2f}x da média, com {_scenario_mult['control']['cards']:.2f}x de cartões (jogo mais tenso e disputado)."
+                    "reasoning": control_reason
                 },
                 "probabilities": {
-                    "goals": {"home": max(10, int(home_goals_prob * _scenario_mult['control']['goals'])), "away": max(8, int(away_goals_prob * _scenario_mult['control']['goals'])), "method": "ml"},
-                    "cards": {"home": max(10, int(home_cards_prob * _scenario_mult['control']['cards'])), "away": max(10, int(away_cards_prob * _scenario_mult['control']['cards'])), "method": "ml"},
-                    "penalty": {"home": max(5, int(home_penalty_base * _scenario_mult['control']['penalty'])), "away": max(5, int(away_penalty_base * _scenario_mult['control']['penalty'])), "method": "ml"},
+                    "goals": {"home": max(10, int(home_goals_prob * scenario_mult['control']['goals'])), "away": max(8, int(away_goals_prob * scenario_mult['control']['goals'])), "method": "ml"},
+                    "cards": {"home": max(10, int(home_cards_prob * scenario_mult['control']['cards'])), "away": max(10, int(away_cards_prob * scenario_mult['control']['cards'])), "method": "ml"},
+                    "penalty": {"home": max(5, int(home_penalty_base * scenario_mult['control']['penalty'])), "away": max(5, int(away_penalty_base * scenario_mult['control']['penalty'])), "method": "ml"},
                     "winner": {"home": control_home_win, "away": control_away_win, "draw": control_draw, "method": "ml"}
                 }
             }
@@ -564,18 +689,9 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
             "control": control_confidence
         },
         "metadata": {
-            "goals": {
-                "reasoning": f"Pelo desempenho recente das equipes, a projeção de gols é de {home_goals_exp} para {homeTeam} e {away_goals_exp} para {awayTeam}.",
-                "source": "Histórico de partidas e fase atual"
-            },
-            "cards": {
-                "reasoning": f"O padrão de jogo recente indica cerca de {home_cards_exp + away_cards_exp} cartões no confronto.",
-                "source": "Ritmo de jogo e histórico disciplinar"
-            },
-            "penalty": {
-                "reasoning": f"Pelos lances em área e pressão ofensiva recente, a chance de pênalti é de {home_penalty_base}% para {homeTeam} e {away_penalty_base}% para {awayTeam}.",
-                "source": "Histórico de lances na área"
-            },
+            "goals": market_copy["goals"],
+            "cards": market_copy["cards"],
+            "penalty": market_copy["penalty"],
             "winner": {
                 "reasoning": f"No cenário atual, o favoritismo está em {home_win_prob}% para {homeTeam} contra {away_win_prob}% para {awayTeam}.",
                 "source": "Momento das equipes e resultados recentes"
@@ -584,7 +700,7 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
         "timelineEvents": [], # Removido dados mockados
         "autoComments": [
             {
-                "text": f"Os dados recentes apontam que o {homeTeam} pode terminar a partida com cerca de {home_cards_exp} cartões.",
+                "text": f"Os dados recentes indicam intensidade competitiva alta para {homeTeam} no cenário atual.",
                 "type": "insight"
             },
             {
@@ -592,7 +708,7 @@ def get_match_scenario(params: Annotated[MatchScenarioQuery, Depends()]):
                 "type": "alert"
             },
             {
-                "text": f"A projeção atual indica {home_goals_exp} gols esperados para o {homeTeam}.",
+                "text": f"A projeção atual mantém {homeTeam} com vantagem de ritmo sobre {awayTeam}.",
                 "type": "trend"
             }
         ],
